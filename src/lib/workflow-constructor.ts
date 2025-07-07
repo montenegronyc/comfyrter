@@ -25,27 +25,27 @@ export class WorkflowConstructor {
       const steps = this.parser.parseDescription(description);
       const prompts = this.parser.extractPrompt(description);
     
-    const nodes: Record<string, ComfyUINode> = {};
+    const nodes: ComfyUINode[] = [];
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
     // Always start with model loading
     const modelLoadNode = this.createNode('CheckpointLoaderSimple', {
       ckpt_name: steps[0]?.parameters?.model || 'v1-5-pruned-emaonly.safetensors'
     });
-    nodes[modelLoadNode.id] = modelLoadNode;
+    nodes.push(modelLoadNode);
     
     // Create text encoding nodes
     const positiveTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.positive,
       clip: [modelLoadNode.id, 1]
     });
-    nodes[positiveTextNode.id] = positiveTextNode;
+    nodes.push(positiveTextNode);
     
     const negativeTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.negative,
       clip: [modelLoadNode.id, 1]
     });
-    nodes[negativeTextNode.id] = negativeTextNode;
+    nodes.push(negativeTextNode);
     
     // Track the current model and conditioning nodes for chaining
     let currentModel: [string, number] = [modelLoadNode.id, 0];
@@ -166,7 +166,7 @@ export class WorkflowConstructor {
       const previewNode = this.createNode('PreviewImage', {
         images: currentImage
       });
-      nodes[previewNode.id] = previewNode;
+      nodes.push(previewNode);
       
       explanationSteps.push({
         step: stepCounter++,
@@ -185,7 +185,7 @@ export class WorkflowConstructor {
     const explanation: WorkflowExplanation = {
       title: 'ComfyUI Workflow',
       steps: explanationSteps,
-      summary: `Generated workflow with ${Object.keys(nodes).length} nodes to create: ${prompts.positive}`
+      summary: `Generated workflow with ${nodes.length} nodes to create: ${prompts.positive}`
     };
     
     return { workflow, explanation };
@@ -197,7 +197,7 @@ export class WorkflowConstructor {
     const enhanced = this.enhancedParser.parseDescription(description);
     const prompts = this.enhancedParser.extractPrompt(description);
     
-    const nodes: Record<string, ComfyUINode> = {};
+    const nodes: ComfyUINode[] = [];
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
     // Select optimal model based on context
@@ -208,20 +208,20 @@ export class WorkflowConstructor {
     const modelLoadNode = this.createNode('CheckpointLoaderSimple', {
       ckpt_name: modelName
     });
-    nodes[modelLoadNode.id] = modelLoadNode;
+    nodes.push(modelLoadNode);
     
     // Create text encoding nodes
     const positiveTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.positive,
       clip: [modelLoadNode.id, 1]
     });
-    nodes[positiveTextNode.id] = positiveTextNode;
+    nodes.push(positiveTextNode);
     
     const negativeTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.negative,
       clip: [modelLoadNode.id, 1]
     });
-    nodes[negativeTextNode.id] = negativeTextNode;
+    nodes.push(negativeTextNode);
     
     // Track the current model and conditioning nodes for chaining
     let currentModel: [string, number] = [modelLoadNode.id, 0];
@@ -276,13 +276,13 @@ export class WorkflowConstructor {
         text: prompts.positive,
         clip: currentClip
       });
-      nodes[newPositiveTextNode.id] = newPositiveTextNode;
+      nodes.push(newPositiveTextNode);
       
       const newNegativeTextNode = this.createNode('CLIPTextEncode', {
         text: prompts.negative,
         clip: currentClip
       });
-      nodes[newNegativeTextNode.id] = newNegativeTextNode;
+      nodes.push(newNegativeTextNode);
       
       currentPositive = [newPositiveTextNode.id, 0];
       currentNegative = [newNegativeTextNode.id, 0];
@@ -373,7 +373,7 @@ export class WorkflowConstructor {
       const previewNode = this.createNode('PreviewImage', {
         images: currentImage
       });
-      nodes[previewNode.id] = previewNode;
+      nodes.push(previewNode);
       
       explanationSteps.push({
         step: stepCounter++,
@@ -392,7 +392,7 @@ export class WorkflowConstructor {
     const explanation: WorkflowExplanation = {
       title: 'Intelligent ComfyUI Workflow',
       steps: explanationSteps,
-      summary: `Generated intelligent workflow with ${Object.keys(nodes).length} nodes using ${selectedModel?.name || 'default model'} and ${selectedLoras.length} LoRAs`
+      summary: `Generated intelligent workflow with ${nodes.length} nodes using ${selectedModel?.name || 'default model'} and ${selectedLoras.length} LoRAs`
     };
     
     return { workflow, explanation };
@@ -413,7 +413,7 @@ export class WorkflowConstructor {
   }
   
   private addIntelligentGenerationNodes(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     _step: unknown,
     model: [string, number],
     positive: [string, number],
@@ -444,7 +444,7 @@ export class WorkflowConstructor {
       height: optimizedParams.height,
       batch_size: 1
     });
-    nodes[emptyLatentNode.id] = emptyLatentNode;
+    nodes.push(emptyLatentNode);
     
     // Create sampler with optimized parameters
     const samplerNode = this.createNode('KSampler', {
@@ -459,14 +459,14 @@ export class WorkflowConstructor {
       scheduler: optimizedParams.scheduler,
       denoise: optimizedParams.denoise
     });
-    nodes[samplerNode.id] = samplerNode;
+    nodes.push(samplerNode);
     
     // Create VAE decode
     const vaeDecodeNode = this.createNode('VAEDecode', {
       samples: [samplerNode.id, 0],
       vae: vae
     });
-    nodes[vaeDecodeNode.id] = vaeDecodeNode;
+    nodes.push(vaeDecodeNode);
     
     return {
       latent: [samplerNode.id, 0],
@@ -475,7 +475,7 @@ export class WorkflowConstructor {
   }
   
   private addGenerationNodes(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
     model: [string, number],
     positive: [string, number],
@@ -488,7 +488,7 @@ export class WorkflowConstructor {
       height: step.parameters.height || 512,
       batch_size: 1
     });
-    nodes[emptyLatentNode.id] = emptyLatentNode;
+    nodes.push(emptyLatentNode);
     
     // Create sampler
     const samplerNode = this.createNode('KSampler', {
@@ -503,14 +503,14 @@ export class WorkflowConstructor {
       scheduler: step.parameters.scheduler || 'normal',
       denoise: step.parameters.denoise || 1.0
     });
-    nodes[samplerNode.id] = samplerNode;
+    nodes.push(samplerNode);
     
     // Create VAE decode
     const vaeDecodeNode = this.createNode('VAEDecode', {
       samples: [samplerNode.id, 0],
       vae: vae
     });
-    nodes[vaeDecodeNode.id] = vaeDecodeNode;
+    nodes.push(vaeDecodeNode);
     
     return {
       latent: [samplerNode.id, 0],
@@ -519,7 +519,7 @@ export class WorkflowConstructor {
   }
   
   private addLoRANode(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
     model: [string, number],
     clip: [string, number]
@@ -531,7 +531,7 @@ export class WorkflowConstructor {
       strength_model: step.parameters.strength_model || 1.0,
       strength_clip: step.parameters.strength_clip || 1.0
     });
-    nodes[loraNode.id] = loraNode;
+    nodes.push(loraNode);
     
     return {
       model: [loraNode.id, 0],
@@ -540,7 +540,7 @@ export class WorkflowConstructor {
   }
   
   private addUpscaleNode(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
     image: [string, number]
   ): [string, number] {
@@ -549,13 +549,13 @@ export class WorkflowConstructor {
       const upscaleModelNode = this.createNode('UpscaleModelLoader', {
         model_name: step.parameters.model || 'RealESRGAN_x4plus.pth'
       });
-      nodes[upscaleModelNode.id] = upscaleModelNode;
+      nodes.push(upscaleModelNode);
       
       const upscaleNode = this.createNode('ImageUpscaleWithModel', {
         upscale_model: [upscaleModelNode.id, 0],
         image: image
       });
-      nodes[upscaleNode.id] = upscaleNode;
+      nodes.push(upscaleNode);
       
       return [upscaleNode.id, 0];
     } else {
@@ -571,14 +571,14 @@ export class WorkflowConstructor {
         height: Math.round(currentHeight * (factor as number)),
         crop: 'disabled'
       });
-      nodes[scaleNode.id] = scaleNode;
+      nodes.push(scaleNode);
       
       return [scaleNode.id, 0];
     }
   }
   
   private addEffectNode(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
     image: [string, number]
   ): [string, number] {
@@ -590,13 +590,13 @@ export class WorkflowConstructor {
       blend_factor: step.parameters.strength || 0.5,
       blend_mode: 'overlay'
     });
-    nodes[blendNode.id] = blendNode;
+    nodes.push(blendNode);
     
     return [blendNode.id, 0];
   }
   
   private addControlNetNode(
-    nodes: Record<string, ComfyUINode>,
+    nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
     positive: [string, number],
     negative: [string, number],
@@ -606,7 +606,7 @@ export class WorkflowConstructor {
     const controlNetLoader = this.createNode('ControlNetLoader', {
       control_net_name: `control_v11p_sd15_${step.parameters.type || 'canny'}.pth`
     });
-    nodes[controlNetLoader.id] = controlNetLoader;
+    nodes.push(controlNetLoader);
     
     // Apply ControlNet
     const controlNetApply = this.createNode('ControlNetApplyAdvanced', {
@@ -618,7 +618,7 @@ export class WorkflowConstructor {
       start_percent: 0.0,
       end_percent: 1.0
     });
-    nodes[controlNetApply.id] = controlNetApply;
+    nodes.push(controlNetApply);
     
     return {
       positive: [controlNetApply.id, 0],
@@ -645,7 +645,7 @@ export class WorkflowConstructor {
       return { isValid: false, errors };
     }
     
-    for (const [nodeId, node] of Object.entries(workflow.nodes)) {
+    for (const node of workflow.nodes) {
       const definition = getNodeDefinition(node.class_type);
       if (!definition) {
         errors.push(`Unknown node type: ${node.class_type}`);
@@ -655,7 +655,7 @@ export class WorkflowConstructor {
       // Check required inputs
       for (const [inputName, inputDef] of Object.entries(definition.inputs)) {
         if (inputDef.required && !(inputName in node.inputs)) {
-          errors.push(`Node ${nodeId} (${node.class_type}) missing required input: ${inputName}`);
+          errors.push(`Node ${node.id} (${node.class_type}) missing required input: ${inputName}`);
         }
       }
     }

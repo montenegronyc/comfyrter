@@ -11,7 +11,7 @@ export interface ComfyUINode {
 
 export interface ComfyUIWorkflow {
   version: number;
-  nodes: Record<string, ComfyUINode>;
+  nodes: ComfyUINode[];
   state: Record<string, unknown>;
   extra?: {
     ds?: {
