@@ -9,6 +9,8 @@ export class WorkflowConstructor {
   private parser: WorkflowParser;
   private enhancedParser: EnhancedWorkflowParser;
   private nodeCounter: number = 1;
+  private linkCounter: number = 1;
+  private currentLinks: unknown[][] = [];
   
   constructor() {
     this.parser = new WorkflowParser();
@@ -22,6 +24,11 @@ export class WorkflowConstructor {
     } catch (error) {
       console.warn('Falling back to basic workflow generation:', error);
       // Fallback to basic workflow generation
+      // Reset counters and links for fresh workflow generation
+      this.nodeCounter = 1;
+      this.linkCounter = 1;
+      this.currentLinks = [];
+      
       const steps = this.parser.parseDescription(description);
       const prompts = this.parser.extractPrompt(description);
     
@@ -179,6 +186,10 @@ export class WorkflowConstructor {
     const workflow: ComfyUIWorkflow = {
       version: 1.0,
       nodes,
+      links: this.currentLinks,
+      groups: [],
+      config: {},
+      extra: {},
       state: {}
     };
     
@@ -194,6 +205,11 @@ export class WorkflowConstructor {
   
   // Enhanced workflow generation with intelligent model selection
   public generateIntelligentWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
+    // Reset counters and links for fresh workflow generation
+    this.nodeCounter = 1;
+    this.linkCounter = 1;
+    this.currentLinks = [];
+    
     const enhanced = this.enhancedParser.parseDescription(description);
     const prompts = this.enhancedParser.extractPrompt(description);
     
@@ -386,6 +402,10 @@ export class WorkflowConstructor {
     const workflow: ComfyUIWorkflow = {
       version: 1.0,
       nodes,
+      links: this.currentLinks,
+      groups: [],
+      config: {},
+      extra: {},
       state: {}
     };
     
@@ -403,12 +423,37 @@ export class WorkflowConstructor {
     this.nodeCounter++;
     
     // Convert inputs object to array format expected by ComfyUI
-    const inputsArray = Object.entries(inputs).map(([key, value]) => ({
-      name: key,
-      type: this.inferInputType(value),
-      link: Array.isArray(value) && value.length === 2 ? value[1] : null,
-      value: Array.isArray(value) && value.length === 2 ? null : value
-    }));
+    const inputsArray = Object.entries(inputs).map(([key, value]) => {
+      if (Array.isArray(value) && value.length === 2) {
+        // This is a connection: [sourceNodeId, outputSlot]
+        const sourceNodeId = value[0] as string;
+        const outputSlot = value[1] as number;
+        const linkId = this.linkCounter++;
+        
+        // Create a link entry: [linkId, sourceNodeId, outputSlot, targetNodeId, inputSlot, inputType]
+        this.currentLinks.push([
+          linkId,
+          parseInt(sourceNodeId),
+          outputSlot,
+          parseInt(nodeId),
+          Object.keys(inputs).indexOf(key), // Input slot index
+          this.getInputTypeForConnection(classType, key)
+        ]);
+        
+        return {
+          name: key,
+          type: "CONNECTION",
+          link: linkId
+        };
+      } else {
+        // This is a direct value
+        return {
+          name: key,
+          type: this.inferInputType(value),
+          value: value
+        };
+      }
+    });
     
     return {
       id: nodeId,
@@ -419,7 +464,7 @@ export class WorkflowConstructor {
       order: this.nodeCounter,
       mode: 0, // 0 = normal mode
       inputs: inputsArray,
-      outputs: [],
+      outputs: this.getOutputsForNodeType(classType),
       properties: {},
       title: classType
     };
@@ -431,6 +476,61 @@ export class WorkflowConstructor {
     if (typeof value === 'boolean') return 'BOOLEAN';
     if (Array.isArray(value)) return 'CONNECTION';
     return 'UNKNOWN';
+  }
+  
+  private getOutputsForNodeType(classType: string): unknown[] {
+    // Define outputs based on node type - this is a simplified version
+    const outputMap: Record<string, unknown[]> = {
+      'CheckpointLoaderSimple': [
+        { name: 'MODEL', type: 'MODEL' },
+        { name: 'CLIP', type: 'CLIP' },
+        { name: 'VAE', type: 'VAE' }
+      ],
+      'CLIPTextEncode': [
+        { name: 'CONDITIONING', type: 'CONDITIONING' }
+      ],
+      'KSampler': [
+        { name: 'LATENT', type: 'LATENT' }
+      ],
+      'VAEDecode': [
+        { name: 'IMAGE', type: 'IMAGE' }
+      ],
+      'LoraLoader': [
+        { name: 'MODEL', type: 'MODEL' },
+        { name: 'CLIP', type: 'CLIP' }
+      ],
+      'PreviewImage': [],
+      'EmptyLatentImage': [
+        { name: 'LATENT', type: 'LATENT' }
+      ]
+    };
+    
+    return outputMap[classType] || [];
+  }
+  
+  private getInputTypeForConnection(classType: string, inputName: string): string {
+    // Define input types based on node type and input name
+    const typeMap: Record<string, Record<string, string>> = {
+      'CLIPTextEncode': {
+        'clip': 'CLIP'
+      },
+      'KSampler': {
+        'model': 'MODEL',
+        'positive': 'CONDITIONING',
+        'negative': 'CONDITIONING',
+        'latent_image': 'LATENT'
+      },
+      'VAEDecode': {
+        'samples': 'LATENT',
+        'vae': 'VAE'
+      },
+      'LoraLoader': {
+        'model': 'MODEL',
+        'clip': 'CLIP'
+      }
+    };
+    
+    return typeMap[classType]?.[inputName] || 'UNKNOWN';
   }
   
   private addIntelligentGenerationNodes(
