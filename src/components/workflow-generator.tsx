@@ -9,16 +9,8 @@ import { downloadJSON, copyToClipboard, generateTimestamp } from '@/lib/utils'
 import { ComfyUIWorkflow, WorkflowExplanation } from '@/lib/types'
 import { EnhancedWorkflowParser, ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
 import { ParameterOptimizer, QualityMetrics } from '@/lib/parameter-optimizer'
-import { STYLE_PRESETS } from '@/lib/model-knowledge-base'
 import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info, Check } from 'lucide-react'
 
-const EXAMPLE_PROMPTS = [
-  "Generate a fantasy landscape with a castle, then upscale it 2x and add film grain",
-  "Create a portrait of a cyberpunk character using euler sampler with 30 steps, then apply a vintage effect",
-  "Make a serene forest scene at 768x768 resolution with cfg 7.5, then blend it with a misty overlay",
-  "Generate an anime character with specific LoRA: anime_style.safetensors at strength 0.8, then upscale using AI model",
-  "Create a product photo with ControlNet pose guidance, 25 steps, then sharpen and save"
-]
 
 export function WorkflowGenerator() {
   const [description, setDescription] = useState('')
@@ -115,31 +107,6 @@ export function WorkflowGenerator() {
     }
   }
 
-  const insertExample = (example: string) => {
-    setDescription(example)
-    setWorkflow(null)
-    setExplanation(null)
-    setContext(null)
-    setEnhancedSteps([])
-    setQualityMetrics(null)
-    setIsCopied(false)
-    setError(null)
-  }
-
-  const insertStylePreset = (presetKey: string) => {
-    const preset = STYLE_PRESETS[presetKey]
-    if (preset) {
-      const description = `Create ${preset.description.toLowerCase()}`
-      setDescription(description)
-      setWorkflow(null)
-      setExplanation(null)
-      setContext(null)
-      setEnhancedSteps([])
-      setQualityMetrics(null)
-      setIsCopied(false)
-      setError(null)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -188,57 +155,6 @@ export function WorkflowGenerator() {
         </CardContent>
       </Card>
 
-      {/* Style Presets */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              Style Presets
-            </CardTitle>
-            <CardDescription>
-              Quick-start with intelligent style templates
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {Object.entries(STYLE_PRESETS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  onClick={() => insertStylePreset(key)}
-                  className="text-left p-3 rounded-md border border-border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="font-medium text-sm">{preset.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{preset.description}</div>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Example Prompts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Example Prompts</CardTitle>
-            <CardDescription>
-              Try these natural language descriptions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {EXAMPLE_PROMPTS.map((example, index) => (
-                <button
-                  key={index}
-                  onClick={() => insertExample(example)}
-                  className="text-left p-3 rounded-md border border-border hover:bg-muted/50 transition-colors text-sm"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Intelligent Analysis */}
       {context && (
