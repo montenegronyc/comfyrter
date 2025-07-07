@@ -1,4 +1,4 @@
-import { ComfyUIWorkflow, ComfyUINode, ParsedWorkflowStep, WorkflowExplanation } from './types';
+import { ComfyUIWorkflow, ComfyUINode, ComfyUILink, ParsedWorkflowStep, WorkflowExplanation } from './types';
 import { getNodeDefinition } from './node-definitions';
 import { WorkflowParser } from './workflow-parser';
 import { EnhancedWorkflowParser } from './enhanced-workflow-parser';
@@ -10,7 +10,7 @@ export class WorkflowConstructor {
   private enhancedParser: EnhancedWorkflowParser;
   private nodeCounter: number = 1;
   private linkCounter: number = 1;
-  private currentLinks: Array<[number, number, number, number, number, string]> = [];
+  private currentLinks: ComfyUILink[] = [];
   
   constructor() {
     this.parser = new WorkflowParser();
@@ -44,22 +44,22 @@ export class WorkflowConstructor {
     // Create text encoding nodes
     const positiveTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.positive,
-      clip: [modelLoadNode.id, 1]
+      clip: [modelLoadNode.id as number, 1]
     });
     nodes.push(positiveTextNode);
     
     const negativeTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.negative,
-      clip: [modelLoadNode.id, 1]
+      clip: [modelLoadNode.id as number, 1]
     });
     nodes.push(negativeTextNode);
     
     // Track the current model and conditioning nodes for chaining
-    let currentModel: [string, number] = [modelLoadNode.id, 0];
-    let currentPositive: [string, number] = [positiveTextNode.id, 0];
-    let currentNegative: [string, number] = [negativeTextNode.id, 0];
-    const currentVAE: [string, number] = [modelLoadNode.id, 2];
-    let currentImage: [string, number] | null = null;
+    let currentModel: [number, number] = [modelLoadNode.id as number, 0];
+    let currentPositive: [number, number] = [positiveTextNode.id as number, 0];
+    let currentNegative: [number, number] = [negativeTextNode.id as number, 0];
+    const currentVAE: [number, number] = [modelLoadNode.id as number, 2];
+    let currentImage: [number, number] | null = null;
     
     explanationSteps.push({
       step: 1,
@@ -114,10 +114,10 @@ export class WorkflowConstructor {
           break;
           
         case 'lora':
-          const loraResult = this.addLoRANode(nodes, step, currentModel, [modelLoadNode.id, 1]);
+          const loraResult = this.addLoRANode(nodes, step, currentModel, [modelLoadNode.id as number, 1]);
           currentModel = loraResult.model;
-          currentPositive = [positiveTextNode.id, 0]; // Re-encode with new CLIP
-          currentNegative = [negativeTextNode.id, 0];
+          currentPositive = [positiveTextNode.id as number, 0]; // Re-encode with new CLIP
+          currentNegative = [negativeTextNode.id as number, 0];
           
           explanationSteps.push({
             step: stepCounter++,
@@ -183,19 +183,19 @@ export class WorkflowConstructor {
       });
     }
     
-    // Convert nodes array to ComfyUI API format
+    // Convert nodes array to ComfyUI workflow format
     const workflow: ComfyUIWorkflow = {
-      version: 1
+      version: 1,
+      state: {
+        lastNodeId: this.nodeCounter - 1,
+        lastLinkId: this.linkCounter - 1
+      },
+      nodes: nodes,
+      links: this.currentLinks,
+      groups: [],
+      config: {},
+      extra: {}
     };
-    for (const node of nodes) {
-      workflow[node.id] = {
-        inputs: this.convertNodeInputsToAPI(node.inputs),
-        class_type: node.type,
-        _meta: {
-          title: node.title || node.type
-        }
-      };
-    }
     
     const explanation: WorkflowExplanation = {
       title: 'ComfyUI Workflow',
@@ -233,23 +233,23 @@ export class WorkflowConstructor {
     // Create text encoding nodes
     const positiveTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.positive,
-      clip: [modelLoadNode.id, 1]
+      clip: [modelLoadNode.id as number, 1]
     });
     nodes.push(positiveTextNode);
     
     const negativeTextNode = this.createNode('CLIPTextEncode', {
       text: prompts.negative,
-      clip: [modelLoadNode.id, 1]
+      clip: [modelLoadNode.id as number, 1]
     });
     nodes.push(negativeTextNode);
     
     // Track the current model and conditioning nodes for chaining
-    let currentModel: [string, number] = [modelLoadNode.id, 0];
-    let currentClip: [string, number] = [modelLoadNode.id, 1];
-    let currentPositive: [string, number] = [positiveTextNode.id, 0];
-    let currentNegative: [string, number] = [negativeTextNode.id, 0];
-    const currentVAE: [string, number] = [modelLoadNode.id, 2];
-    let currentImage: [string, number] | null = null;
+    let currentModel: [number, number] = [modelLoadNode.id as number, 0];
+    let currentClip: [number, number] = [modelLoadNode.id as number, 1];
+    let currentPositive: [number, number] = [positiveTextNode.id as number, 0];
+    let currentNegative: [number, number] = [negativeTextNode.id as number, 0];
+    const currentVAE: [number, number] = [modelLoadNode.id as number, 2];
+    let currentImage: [number, number] | null = null;
     
     explanationSteps.push({
       step: 1,
@@ -304,8 +304,8 @@ export class WorkflowConstructor {
       });
       nodes.push(newNegativeTextNode);
       
-      currentPositive = [newPositiveTextNode.id, 0];
-      currentNegative = [newNegativeTextNode.id, 0];
+      currentPositive = [newPositiveTextNode.id as number, 0];
+      currentNegative = [newNegativeTextNode.id as number, 0];
       
       explanationSteps.push({
         step: stepCounter++,
@@ -403,19 +403,19 @@ export class WorkflowConstructor {
       });
     }
     
-    // Convert nodes array to ComfyUI API format
+    // Convert nodes array to ComfyUI workflow format
     const workflow: ComfyUIWorkflow = {
-      version: 1
+      version: 1,
+      state: {
+        lastNodeId: this.nodeCounter - 1,
+        lastLinkId: this.linkCounter - 1
+      },
+      nodes: nodes,
+      links: this.currentLinks,
+      groups: [],
+      config: {},
+      extra: {}
     };
-    for (const node of nodes) {
-      workflow[node.id] = {
-        inputs: this.convertNodeInputsToAPI(node.inputs),
-        class_type: node.type,
-        _meta: {
-          title: node.title || node.type
-        }
-      };
-    }
     
     const explanation: WorkflowExplanation = {
       title: 'Intelligent ComfyUI Workflow',
@@ -426,88 +426,68 @@ export class WorkflowConstructor {
     return { workflow, explanation };
   }
   
-  private convertNodeInputsToAPI(inputs: unknown[]): Record<string, unknown> {
-    const apiInputs: Record<string, unknown> = {};
-    
-    for (const input of inputs) {
-      if (typeof input === 'object' && input !== null && 'name' in input) {
-        const inputObj = input as { name: string; type: string; link?: number; value?: unknown };
-        if (inputObj.type === 'CONNECTION' && inputObj.link) {
-          // Find the source node and output slot for this connection
-          const connection = this.findConnectionByLink(inputObj.link);
-          if (connection) {
-            apiInputs[inputObj.name] = [connection.sourceNodeId.toString(), connection.outputSlot];
-          }
-        } else if (inputObj.value !== undefined) {
-          apiInputs[inputObj.name] = inputObj.value;
-        }
-      }
-    }
-    
-    return apiInputs;
-  }
-  
-  private findConnectionByLink(linkId: number): { sourceNodeId: number; outputSlot: number } | null {
-    for (const link of this.currentLinks) {
-      if (link[0] === linkId) {
-        return {
-          sourceNodeId: link[1],
-          outputSlot: link[2]
-        };
-      }
-    }
-    return null;
-  }
   
   private createNode(classType: string, inputs: Record<string, unknown>): ComfyUINode {
-    const nodeId = this.nodeCounter.toString();
+    const nodeId = this.nodeCounter;
     this.nodeCounter++;
     
-    // Convert inputs object to array format expected by ComfyUI
-    const inputsArray = Object.entries(inputs).map(([key, value]) => {
+    // Create inputs array for schema compliance
+    const inputsArray: Array<{
+      name: string;
+      type: string;
+      link?: number | null;
+    }> = [];
+    
+    // Create widgets_values array for non-connection inputs
+    const widgetValues: unknown[] = [];
+    
+    // Process inputs
+    for (const [key, value] of Object.entries(inputs)) {
       if (Array.isArray(value) && value.length === 2) {
         // This is a connection: [sourceNodeId, outputSlot]
-        const sourceNodeId = value[0] as string;
+        const sourceNodeId = value[0] as string | number;
         const outputSlot = value[1] as number;
         const linkId = this.linkCounter++;
         
-        // Create a link entry: [linkId, sourceNodeId, outputSlot, targetNodeId, inputSlot, inputType]
-        this.currentLinks.push([
-          linkId,
-          parseInt(sourceNodeId),
-          outputSlot,
-          parseInt(nodeId),
-          Object.keys(inputs).indexOf(key), // Input slot index
-          this.getInputTypeForConnection(classType, key)
-        ]);
-        
-        return {
-          name: key,
-          type: "CONNECTION",
-          link: linkId
+        // Create a proper ComfyUILink
+        const link: ComfyUILink = {
+          id: linkId,
+          origin_id: typeof sourceNodeId === 'string' ? parseInt(sourceNodeId) : sourceNodeId,
+          origin_slot: outputSlot,
+          target_id: nodeId,
+          target_slot: inputsArray.length,
+          type: this.getInputTypeForConnection(classType, key)
         };
+        this.currentLinks.push(link);
+        
+        inputsArray.push({
+          name: key,
+          type: this.getInputTypeForConnection(classType, key),
+          link: linkId
+        });
       } else {
-        // This is a direct value
-        return {
+        // This is a widget value
+        inputsArray.push({
           name: key,
           type: this.inferInputType(value),
-          value: value
-        };
+          link: null
+        });
+        widgetValues.push(value);
       }
-    });
+    }
     
     return {
       id: nodeId,
       type: classType,
-      pos: [Math.random() * 1000, Math.random() * 1000], // Random position for now
-      size: [200, 100], // Default size
+      pos: [Math.random() * 1000, Math.random() * 1000],
+      size: [200, 100],
       flags: {},
-      order: this.nodeCounter,
-      mode: 0, // 0 = normal mode
+      order: nodeId,
+      mode: 0,
       inputs: inputsArray,
       outputs: this.getOutputsForNodeType(classType),
       properties: {},
-      title: classType
+      widgets_values: widgetValues.length > 0 ? widgetValues : undefined
     };
   }
   
@@ -519,9 +499,13 @@ export class WorkflowConstructor {
     return 'UNKNOWN';
   }
   
-  private getOutputsForNodeType(classType: string): unknown[] {
+  private getOutputsForNodeType(classType: string): Array<{
+    name: string;
+    type: string;
+    links?: number[] | null;
+  }> {
     // Define outputs based on node type - this is a simplified version
-    const outputMap: Record<string, unknown[]> = {
+    const outputMap: Record<string, Array<{ name: string; type: string }>> = {
       'CheckpointLoaderSimple': [
         { name: 'MODEL', type: 'MODEL' },
         { name: 'CLIP', type: 'CLIP' },
@@ -546,7 +530,11 @@ export class WorkflowConstructor {
       ]
     };
     
-    return outputMap[classType] || [];
+    const outputs = outputMap[classType] || [];
+    return outputs.map(output => ({
+      ...output,
+      links: null
+    }));
   }
   
   private getInputTypeForConnection(classType: string, inputName: string): string {
@@ -577,14 +565,14 @@ export class WorkflowConstructor {
   private addIntelligentGenerationNodes(
     nodes: ComfyUINode[],
     _step: unknown,
-    model: [string, number],
-    positive: [string, number],
-    negative: [string, number],
-    vae: [string, number],
+    model: [number, number],
+    positive: [number, number],
+    negative: [number, number],
+    vae: [number, number],
     context: unknown,
     selectedModel: unknown,
     selectedLoras: unknown[]
-  ): { latent: [string, number]; image: [string, number] } {
+  ): { latent: [number, number]; image: [number, number] } {
     // Use parameter optimization for intelligent generation
     const optimizedParams = ParameterOptimizer.optimizeParameters(
       {
@@ -613,7 +601,7 @@ export class WorkflowConstructor {
       model: model,
       positive: positive,
       negative: negative,
-      latent_image: [emptyLatentNode.id, 0],
+      latent_image: [emptyLatentNode.id as number, 0],
       seed: optimizedParams.seed || -1,
       steps: optimizedParams.steps,
       cfg: optimizedParams.cfg,
@@ -625,25 +613,25 @@ export class WorkflowConstructor {
     
     // Create VAE decode
     const vaeDecodeNode = this.createNode('VAEDecode', {
-      samples: [samplerNode.id, 0],
+      samples: [samplerNode.id as number, 0],
       vae: vae
     });
     nodes.push(vaeDecodeNode);
     
     return {
-      latent: [samplerNode.id, 0],
-      image: [vaeDecodeNode.id, 0]
+      latent: [samplerNode.id as number, 0],
+      image: [vaeDecodeNode.id as number, 0]
     };
   }
   
   private addGenerationNodes(
     nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
-    model: [string, number],
-    positive: [string, number],
-    negative: [string, number],
-    vae: [string, number]
-  ): { latent: [string, number]; image: [string, number] } {
+    model: [number, number],
+    positive: [number, number],
+    negative: [number, number],
+    vae: [number, number]
+  ): { latent: [number, number]; image: [number, number] } {
     // Create empty latent
     const emptyLatentNode = this.createNode('EmptyLatentImage', {
       width: step.parameters.width || 512,
@@ -657,7 +645,7 @@ export class WorkflowConstructor {
       model: model,
       positive: positive,
       negative: negative,
-      latent_image: [emptyLatentNode.id, 0],
+      latent_image: [emptyLatentNode.id as number, 0],
       seed: step.parameters.seed || -1,
       steps: step.parameters.steps || 20,
       cfg: step.parameters.cfg || 8.0,
@@ -669,23 +657,23 @@ export class WorkflowConstructor {
     
     // Create VAE decode
     const vaeDecodeNode = this.createNode('VAEDecode', {
-      samples: [samplerNode.id, 0],
+      samples: [samplerNode.id as number, 0],
       vae: vae
     });
     nodes.push(vaeDecodeNode);
     
     return {
-      latent: [samplerNode.id, 0],
-      image: [vaeDecodeNode.id, 0]
+      latent: [samplerNode.id as number, 0],
+      image: [vaeDecodeNode.id as number, 0]
     };
   }
   
   private addLoRANode(
     nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
-    model: [string, number],
-    clip: [string, number]
-  ): { model: [string, number]; clip: [string, number] } {
+    model: [number, number],
+    clip: [number, number]
+  ): { model: [number, number]; clip: [number, number] } {
     const loraNode = this.createNode('LoraLoader', {
       model: model,
       clip: clip,
@@ -696,16 +684,16 @@ export class WorkflowConstructor {
     nodes.push(loraNode);
     
     return {
-      model: [loraNode.id, 0],
-      clip: [loraNode.id, 1]
+      model: [loraNode.id as number, 0],
+      clip: [loraNode.id as number, 1]
     };
   }
   
   private addUpscaleNode(
     nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
-    image: [string, number]
-  ): [string, number] {
+    image: [number, number]
+  ): [number, number] {
     if (step.parameters.method === 'model') {
       // Use upscale model
       const upscaleModelNode = this.createNode('UpscaleModelLoader', {
@@ -714,12 +702,12 @@ export class WorkflowConstructor {
       nodes.push(upscaleModelNode);
       
       const upscaleNode = this.createNode('ImageUpscaleWithModel', {
-        upscale_model: [upscaleModelNode.id, 0],
+        upscale_model: [upscaleModelNode.id as number, 0],
         image: image
       });
       nodes.push(upscaleNode);
       
-      return [upscaleNode.id, 0];
+      return [upscaleNode.id as number, 0];
     } else {
       // Use simple scaling
       const factor = step.parameters.factor || 2;
@@ -735,15 +723,15 @@ export class WorkflowConstructor {
       });
       nodes.push(scaleNode);
       
-      return [scaleNode.id, 0];
+      return [scaleNode.id as number, 0];
     }
   }
   
   private addEffectNode(
     nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
-    image: [string, number]
-  ): [string, number] {
+    image: [number, number]
+  ): [number, number] {
     // For now, we'll create a simple blend node as a placeholder for effects
     // In a real implementation, you'd have specific nodes for different effects
     const blendNode = this.createNode('ImageBlend', {
@@ -754,16 +742,16 @@ export class WorkflowConstructor {
     });
     nodes.push(blendNode);
     
-    return [blendNode.id, 0];
+    return [blendNode.id as number, 0];
   }
   
   private addControlNetNode(
     nodes: ComfyUINode[],
     step: ParsedWorkflowStep,
-    positive: [string, number],
-    negative: [string, number],
-    image: [string, number]
-  ): { positive: [string, number]; negative: [string, number] } {
+    positive: [number, number],
+    negative: [number, number],
+    image: [number, number]
+  ): { positive: [number, number]; negative: [number, number] } {
     // Load ControlNet model
     const controlNetLoader = this.createNode('ControlNetLoader', {
       control_net_name: `control_v11p_sd15_${step.parameters.type || 'canny'}.pth`
@@ -783,8 +771,8 @@ export class WorkflowConstructor {
     nodes.push(controlNetApply);
     
     return {
-      positive: [controlNetApply.id, 0],
-      negative: [controlNetApply.id, 1]
+      positive: [controlNetApply.id as number, 0],
+      negative: [controlNetApply.id as number, 1]
     };
   }
   
@@ -799,40 +787,56 @@ export class WorkflowConstructor {
       errors.push(`Workflow version must be 1, got ${workflow.version}`);
     }
     
-    // Count actual nodes (excluding version field)
-    const nodeCount = Object.keys(workflow).filter(key => key !== 'version').length;
-    if (nodeCount === 0) {
+    // Check required state field
+    if (!workflow.state) {
+      errors.push('Workflow missing required state field');
+    } else {
+      if (workflow.state.lastNodeId === undefined) {
+        errors.push('Workflow state missing lastNodeId');
+      }
+      if (workflow.state.lastLinkId === undefined) {
+        errors.push('Workflow state missing lastLinkId');
+      }
+    }
+    
+    // Check required nodes field
+    if (!workflow.nodes) {
+      errors.push('Workflow missing required nodes field');
+      return { isValid: false, errors };
+    }
+    
+    if (workflow.nodes.length === 0) {
       errors.push('Workflow contains no nodes');
       return { isValid: false, errors };
     }
     
     // Validate each node
-    for (const [nodeId, nodeData] of Object.entries(workflow)) {
-      // Skip version field
-      if (nodeId === 'version') continue;
-      
-      const node = nodeData as { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string; } };
-      
-      if (!node.class_type) {
-        errors.push(`Node ${nodeId} missing class_type`);
+    for (const node of workflow.nodes) {
+      if (!node.type) {
+        errors.push(`Node ${node.id} missing type`);
         continue;
       }
       
       if (!node.inputs) {
-        errors.push(`Node ${nodeId} missing inputs`);
+        errors.push(`Node ${node.id} missing inputs`);
         continue;
       }
       
-      const definition = getNodeDefinition(node.class_type);
+      const definition = getNodeDefinition(node.type);
       if (!definition) {
-        errors.push(`Unknown node type: ${node.class_type}`);
+        errors.push(`Unknown node type: ${node.type}`);
         continue;
       }
       
       // Check required inputs
+      const nodeInputNames = node.inputs.map((input: unknown) => 
+        typeof input === 'object' && input !== null && 'name' in input 
+          ? (input as { name: string }).name 
+          : ''
+      );
       for (const [inputName, inputDef] of Object.entries(definition.inputs)) {
-        if (inputDef.required && !(inputName in node.inputs)) {
-          errors.push(`Node ${nodeId} (${node.class_type}) missing required input: ${inputName}`);
+        if (inputDef.required && !nodeInputNames.includes(inputName)) {
+          errors.push(`Node ${node.id} (${node.type}) missing required input: ${inputName}`);
         }
       }
     }
