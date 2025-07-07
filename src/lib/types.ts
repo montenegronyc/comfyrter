@@ -17,14 +17,15 @@ export interface ComfyUINode {
   title?: string;
 }
 
+// ComfyUI API Format (for execution)
 export interface ComfyUIWorkflow {
-  version: number;
-  nodes: ComfyUINode[];
-  links: unknown[][];
-  groups: unknown[];
-  config: Record<string, unknown>;
-  extra: Record<string, unknown>;
-  state: Record<string, unknown>;
+  [nodeId: string]: {
+    inputs: Record<string, unknown>;
+    class_type: string;
+    _meta?: {
+      title?: string;
+    };
+  };
 }
 
 export interface WorkflowConnection {

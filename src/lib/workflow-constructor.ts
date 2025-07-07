@@ -10,7 +10,7 @@ export class WorkflowConstructor {
   private enhancedParser: EnhancedWorkflowParser;
   private nodeCounter: number = 1;
   private linkCounter: number = 1;
-  private currentLinks: unknown[][] = [];
+  private currentLinks: Array<[number, number, number, number, number, string]> = [];
   
   constructor() {
     this.parser = new WorkflowParser();
@@ -183,15 +183,17 @@ export class WorkflowConstructor {
       });
     }
     
-    const workflow: ComfyUIWorkflow = {
-      version: 1.0,
-      nodes,
-      links: this.currentLinks,
-      groups: [],
-      config: {},
-      extra: {},
-      state: {}
-    };
+    // Convert nodes array to ComfyUI API format
+    const workflow: ComfyUIWorkflow = {};
+    for (const node of nodes) {
+      workflow[node.id] = {
+        inputs: this.convertNodeInputsToAPI(node.inputs),
+        class_type: node.type,
+        _meta: {
+          title: node.title || node.type
+        }
+      };
+    }
     
     const explanation: WorkflowExplanation = {
       title: 'ComfyUI Workflow',
@@ -399,15 +401,17 @@ export class WorkflowConstructor {
       });
     }
     
-    const workflow: ComfyUIWorkflow = {
-      version: 1.0,
-      nodes,
-      links: this.currentLinks,
-      groups: [],
-      config: {},
-      extra: {},
-      state: {}
-    };
+    // Convert nodes array to ComfyUI API format
+    const workflow: ComfyUIWorkflow = {};
+    for (const node of nodes) {
+      workflow[node.id] = {
+        inputs: this.convertNodeInputsToAPI(node.inputs),
+        class_type: node.type,
+        _meta: {
+          title: node.title || node.type
+        }
+      };
+    }
     
     const explanation: WorkflowExplanation = {
       title: 'Intelligent ComfyUI Workflow',
@@ -416,6 +420,39 @@ export class WorkflowConstructor {
     };
     
     return { workflow, explanation };
+  }
+  
+  private convertNodeInputsToAPI(inputs: unknown[]): Record<string, unknown> {
+    const apiInputs: Record<string, unknown> = {};
+    
+    for (const input of inputs) {
+      if (typeof input === 'object' && input !== null && 'name' in input) {
+        const inputObj = input as { name: string; type: string; link?: number; value?: unknown };
+        if (inputObj.type === 'CONNECTION' && inputObj.link) {
+          // Find the source node and output slot for this connection
+          const connection = this.findConnectionByLink(inputObj.link);
+          if (connection) {
+            apiInputs[inputObj.name] = [connection.sourceNodeId.toString(), connection.outputSlot];
+          }
+        } else if (inputObj.value !== undefined) {
+          apiInputs[inputObj.name] = inputObj.value;
+        }
+      }
+    }
+    
+    return apiInputs;
+  }
+  
+  private findConnectionByLink(linkId: number): { sourceNodeId: number; outputSlot: number } | null {
+    for (const link of this.currentLinks) {
+      if (link[0] === linkId) {
+        return {
+          sourceNodeId: link[1],
+          outputSlot: link[2]
+        };
+      }
+    }
+    return null;
   }
   
   private createNode(classType: string, inputs: Record<string, unknown>): ComfyUINode {
@@ -751,37 +788,34 @@ export class WorkflowConstructor {
   public validateWorkflow(workflow: ComfyUIWorkflow): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // Check required top-level fields
-    if (!workflow.version) {
-      errors.push('Missing required field: version');
-    }
-    if (!workflow.nodes) {
-      errors.push('Missing required field: nodes');
-    }
-    if (!workflow.state) {
-      errors.push('Missing required field: state');
-    }
-    
-    if (!workflow.nodes) {
+    // Check that workflow has nodes
+    if (Object.keys(workflow).length === 0) {
+      errors.push('Workflow contains no nodes');
       return { isValid: false, errors };
     }
     
-    for (const node of workflow.nodes) {
-      const definition = getNodeDefinition(node.type);
+    // Validate each node
+    for (const [nodeId, node] of Object.entries(workflow)) {
+      if (!node.class_type) {
+        errors.push(`Node ${nodeId} missing class_type`);
+        continue;
+      }
+      
+      if (!node.inputs) {
+        errors.push(`Node ${nodeId} missing inputs`);
+        continue;
+      }
+      
+      const definition = getNodeDefinition(node.class_type);
       if (!definition) {
-        errors.push(`Unknown node type: ${node.type}`);
+        errors.push(`Unknown node type: ${node.class_type}`);
         continue;
       }
       
       // Check required inputs
-      const nodeInputNames = node.inputs.map((input: unknown) => 
-        typeof input === 'object' && input !== null && 'name' in input 
-          ? (input as { name: string }).name 
-          : ''
-      );
       for (const [inputName, inputDef] of Object.entries(definition.inputs)) {
-        if (inputDef.required && !nodeInputNames.includes(inputName)) {
-          errors.push(`Node ${node.id} (${node.type}) missing required input: ${inputName}`);
+        if (inputDef.required && !(inputName in node.inputs)) {
+          errors.push(`Node ${nodeId} (${node.class_type}) missing required input: ${inputName}`);
         }
       }
     }
