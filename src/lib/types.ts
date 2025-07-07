@@ -19,13 +19,14 @@ export interface ComfyUINode {
 
 // ComfyUI API Format (for execution)
 export interface ComfyUIWorkflow {
+  version: number;
   [nodeId: string]: {
     inputs: Record<string, unknown>;
     class_type: string;
     _meta?: {
       title?: string;
     };
-  };
+  } | number;
 }
 
 export interface WorkflowConnection {

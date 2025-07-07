@@ -314,7 +314,7 @@ export function WorkflowGenerator() {
               <div>
                 <CardTitle>Generated Workflow JSON</CardTitle>
                 <CardDescription>
-                  ComfyUI workflow file ready for import ({Object.keys(workflow).length} nodes)
+                  ComfyUI workflow file ready for import ({Object.keys(workflow).length - 1} nodes)
                 </CardDescription>
               </div>
               <div className="flex gap-2">

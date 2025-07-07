@@ -184,7 +184,9 @@ export class WorkflowConstructor {
     }
     
     // Convert nodes array to ComfyUI API format
-    const workflow: ComfyUIWorkflow = {};
+    const workflow: ComfyUIWorkflow = {
+      version: 1
+    };
     for (const node of nodes) {
       workflow[node.id] = {
         inputs: this.convertNodeInputsToAPI(node.inputs),
@@ -402,7 +404,9 @@ export class WorkflowConstructor {
     }
     
     // Convert nodes array to ComfyUI API format
-    const workflow: ComfyUIWorkflow = {};
+    const workflow: ComfyUIWorkflow = {
+      version: 1
+    };
     for (const node of nodes) {
       workflow[node.id] = {
         inputs: this.convertNodeInputsToAPI(node.inputs),
@@ -788,14 +792,27 @@ export class WorkflowConstructor {
   public validateWorkflow(workflow: ComfyUIWorkflow): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // Check that workflow has nodes
-    if (Object.keys(workflow).length === 0) {
+    // Check required version field
+    if (!workflow.version) {
+      errors.push('Workflow missing required version field');
+    } else if (workflow.version !== 1) {
+      errors.push(`Workflow version must be 1, got ${workflow.version}`);
+    }
+    
+    // Count actual nodes (excluding version field)
+    const nodeCount = Object.keys(workflow).filter(key => key !== 'version').length;
+    if (nodeCount === 0) {
       errors.push('Workflow contains no nodes');
       return { isValid: false, errors };
     }
     
     // Validate each node
-    for (const [nodeId, node] of Object.entries(workflow)) {
+    for (const [nodeId, nodeData] of Object.entries(workflow)) {
+      // Skip version field
+      if (nodeId === 'version') continue;
+      
+      const node = nodeData as { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string; } };
+      
       if (!node.class_type) {
         errors.push(`Node ${nodeId} missing class_type`);
         continue;
