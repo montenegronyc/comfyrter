@@ -84,7 +84,30 @@ export class WorkflowConstructor {
     
     let stepCounter = 4;
     
-    // Process each workflow step
+    // Check if we need ControlNet and prepare it before generation
+    const controlNetSteps = steps.filter(step => step.action === 'controlnet');
+    if (controlNetSteps.length > 0) {
+      for (const step of controlNetSteps) {
+        // For ControlNet, we need a reference image. We'll create a LoadImage node
+        const controlImageNode = this.createNode('LoadImage', {
+          image: step.parameters.image || 'reference_image.png'
+        });
+        nodes.push(controlImageNode);
+        
+        const controlResult = this.addControlNetNode(nodes, step, currentPositive, currentNegative, [controlImageNode.id as number, 0]);
+        currentPositive = controlResult.positive;
+        currentNegative = controlResult.negative;
+        
+        explanationSteps.push({
+          step: stepCounter++,
+          description: `Setup ControlNet ${step.parameters.type} with strength ${step.parameters.strength || 1.0}`,
+          nodeType: 'ControlNetApplyAdvanced',
+          parameters: step.parameters
+        });
+      }
+    }
+    
+    // Process non-ControlNet steps
     for (const step of steps) {
       switch (step.action) {
         case 'generate':
@@ -152,18 +175,7 @@ export class WorkflowConstructor {
           break;
           
         case 'controlnet':
-          if (currentImage) {
-            const controlResult = this.addControlNetNode(nodes, step, currentPositive, currentNegative, currentImage);
-            currentPositive = controlResult.positive;
-            currentNegative = controlResult.negative;
-            
-            explanationSteps.push({
-              step: stepCounter++,
-              description: `Apply ControlNet ${step.parameters.type} with strength ${step.parameters.strength || 1.0}`,
-              nodeType: 'ControlNetApply',
-              parameters: step.parameters
-            });
-          }
+          // Skip - already handled above
           break;
       }
     }
@@ -320,6 +332,29 @@ export class WorkflowConstructor {
       });
     }
     
+    // Check if we need ControlNet and prepare it before generation
+    const enhancedControlNetSteps = enhanced.steps.filter(step => step.action === 'controlnet');
+    if (enhancedControlNetSteps.length > 0) {
+      for (const step of enhancedControlNetSteps) {
+        // For ControlNet, we need a reference image. We'll create a LoadImage node
+        const controlImageNode = this.createNode('LoadImage', {
+          image: step.parameters.image || 'reference_image.png'
+        });
+        nodes.push(controlImageNode);
+        
+        const controlResult = this.addControlNetNode(nodes, step, currentPositive, currentNegative, [controlImageNode.id as number, 0]);
+        currentPositive = controlResult.positive;
+        currentNegative = controlResult.negative;
+        
+        explanationSteps.push({
+          step: stepCounter++,
+          description: `Setup ControlNet ${step.parameters.type} with strength ${step.parameters.strength || 1.0}`,
+          nodeType: 'ControlNetApplyAdvanced',
+          parameters: step.parameters
+        });
+      }
+    }
+    
     // Process enhanced workflow steps
     for (const step of enhanced.steps) {
       switch (step.action) {
@@ -377,18 +412,7 @@ export class WorkflowConstructor {
           break;
           
         case 'controlnet':
-          if (currentImage) {
-            const controlResult = this.addControlNetNode(nodes, step, currentPositive, currentNegative, currentImage);
-            currentPositive = controlResult.positive;
-            currentNegative = controlResult.negative;
-            
-            explanationSteps.push({
-              step: stepCounter++,
-              description: `Apply ControlNet ${step.parameters.type} with strength ${step.parameters.strength || 1.0}`,
-              nodeType: 'ControlNetApply',
-              parameters: step.parameters
-            });
-          }
+          // Skip - already handled above
           break;
       }
     }
@@ -547,6 +571,10 @@ export class WorkflowConstructor {
       ],
       'ControlNetApply': [
         { name: 'CONDITIONING', type: 'CONDITIONING' }
+      ],
+      'LoadImage': [
+        { name: 'IMAGE', type: 'IMAGE' },
+        { name: 'MASK', type: 'MASK' }
       ]
     };
     
