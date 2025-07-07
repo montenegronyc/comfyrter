@@ -25,7 +25,9 @@ export class WorkflowConstructor {
       const steps = this.parser.parseDescription(description);
       const prompts = this.parser.extractPrompt(description);
     
-    const workflow: ComfyUIWorkflow = {};
+    const workflow: ComfyUIWorkflow = {
+      version: 1.0
+    };
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
     // Always start with model loading
@@ -191,7 +193,9 @@ export class WorkflowConstructor {
     const enhanced = this.enhancedParser.parseDescription(description);
     const prompts = this.enhancedParser.extractPrompt(description);
     
-    const workflow: ComfyUIWorkflow = {};
+    const workflow: ComfyUIWorkflow = {
+      version: 1.0
+    };
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
     // Select optimal model based on context
@@ -619,16 +623,27 @@ export class WorkflowConstructor {
     const errors: string[] = [];
     
     for (const [nodeId, node] of Object.entries(workflow)) {
-      const definition = getNodeDefinition(node.class_type);
+      // Skip non-node properties like version, extra, workflow
+      if (nodeId === 'version' || nodeId === 'extra' || nodeId === 'workflow' || !node || typeof node !== 'object') {
+        continue;
+      }
+      
+      // Type guard to ensure node is a ComfyUINode
+      if (!('class_type' in node) || !('inputs' in node)) {
+        continue;
+      }
+      
+      const comfyNode = node as ComfyUINode;
+      const definition = getNodeDefinition(comfyNode.class_type);
       if (!definition) {
-        errors.push(`Unknown node type: ${node.class_type}`);
+        errors.push(`Unknown node type: ${comfyNode.class_type}`);
         continue;
       }
       
       // Check required inputs
       for (const [inputName, inputDef] of Object.entries(definition.inputs)) {
-        if (inputDef.required && !(inputName in node.inputs)) {
-          errors.push(`Node ${nodeId} (${node.class_type}) missing required input: ${inputName}`);
+        if (inputDef.required && !(inputName in comfyNode.inputs)) {
+          errors.push(`Node ${nodeId} (${comfyNode.class_type}) missing required input: ${inputName}`);
         }
       }
     }

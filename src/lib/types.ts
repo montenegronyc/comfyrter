@@ -10,7 +10,25 @@ export interface ComfyUINode {
 }
 
 export interface ComfyUIWorkflow {
-  [nodeId: string]: ComfyUINode;
+  version?: number;
+  extra?: {
+    ds?: {
+      scale?: number;
+      offset?: [number, number];
+    };
+    groupNodes?: Record<string, unknown>;
+  };
+  workflow?: {
+    last_node_id?: number;
+    last_link_id?: number;
+    nodes?: unknown[];
+    links?: unknown[];
+    groups?: unknown[];
+    config?: Record<string, unknown>;
+    extra?: Record<string, unknown>;
+    version?: number;
+  };
+  [nodeId: string]: ComfyUINode | number | Record<string, unknown> | undefined;
 }
 
 export interface WorkflowConnection {
