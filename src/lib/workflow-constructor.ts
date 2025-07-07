@@ -225,7 +225,8 @@ export class WorkflowConstructor {
     
     // Select optimal model based on context
     const selectedModel = ModelSelector.selectBestModel(enhanced.context.keywords, enhanced.context.detectedStyle);
-    const modelName = selectedModel?.name || 'v1-5-pruned-emaonly.safetensors';
+    const selectedModelKey = ModelSelector.getModelKeyByInfo(selectedModel);
+    const modelName = selectedModelKey || 'v1-5-pruned-emaonly.safetensors';
     
     // Always start with model loading
     const modelLoadNode = this.createNode('CheckpointLoaderSimple', {
@@ -280,10 +281,11 @@ export class WorkflowConstructor {
     // Select and apply optimal LoRAs first
     const selectedLoras = ModelSelector.selectLoras(enhanced.context.keywords, enhanced.context.detectedStyle);
     for (const { model: loraModel, strength } of selectedLoras) {
+      const loraKey = ModelSelector.getModelKeyByInfo(loraModel);
       const loraResult = this.addLoRANode(nodes, {
         action: 'lora',
         parameters: {
-          name: loraModel.name,
+          name: loraKey || loraModel.name,
           strength_model: strength,
           strength_clip: strength
         },
@@ -426,7 +428,7 @@ export class WorkflowConstructor {
     const explanation: WorkflowExplanation = {
       title: 'Intelligent ComfyUI Workflow',
       steps: explanationSteps,
-      summary: `Generated intelligent workflow with ${nodes.length} nodes using ${selectedModel?.name || 'default model'} and ${selectedLoras.length} LoRAs`
+      summary: `Generated intelligent workflow with ${nodes.length} nodes using ${modelName} and ${selectedLoras.length} LoRAs`
     };
     
     return { workflow, explanation };
@@ -535,6 +537,16 @@ export class WorkflowConstructor {
       'PreviewImage': [],
       'EmptyLatentImage': [
         { name: 'LATENT', type: 'LATENT' }
+      ],
+      'ControlNetLoader': [
+        { name: 'CONTROL_NET', type: 'CONTROL_NET' }
+      ],
+      'ControlNetApplyAdvanced': [
+        { name: 'positive', type: 'CONDITIONING' },
+        { name: 'negative', type: 'CONDITIONING' }
+      ],
+      'ControlNetApply': [
+        { name: 'CONDITIONING', type: 'CONDITIONING' }
       ]
     };
     
@@ -564,6 +576,20 @@ export class WorkflowConstructor {
       'LoraLoader': {
         'model': 'MODEL',
         'clip': 'CLIP'
+      },
+      'PreviewImage': {
+        'images': 'IMAGE'
+      },
+      'ControlNetApplyAdvanced': {
+        'positive': 'CONDITIONING',
+        'negative': 'CONDITIONING',
+        'control_net': 'CONTROL_NET',
+        'image': 'IMAGE'
+      },
+      'ControlNetApply': {
+        'conditioning': 'CONDITIONING',
+        'control_net': 'CONTROL_NET',
+        'image': 'IMAGE'
       }
     };
     

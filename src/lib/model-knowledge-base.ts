@@ -369,6 +369,17 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
 
 // Smart model selection based on keywords and context
 export class ModelSelector {
+  static getModelKeyByInfo(modelInfo: ModelInfo | null): string | null {
+    if (!modelInfo) return null;
+    
+    for (const [key, model] of Object.entries(MODEL_KNOWLEDGE_BASE)) {
+      if (model === modelInfo) {
+        return key;
+      }
+    }
+    return null;
+  }
+  
   static selectBestModel(keywords: string[], style?: string): ModelInfo | null {
     const models = Object.values(MODEL_KNOWLEDGE_BASE);
     
