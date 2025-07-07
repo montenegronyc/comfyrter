@@ -1,6 +1,7 @@
-# 🪄 Comfyrter - Natural Language to ComfyUI Workflow Generator
+# Comfyrter - Natural Language to ComfyUI Workflow Generator
 
-> Transform your creative ideas into ComfyUI workflow JSON files using simple natural language descriptions.
+> Problem: It's hard to know what specific combination of ComfyUI nodes will play well together.
+> Solution: This tool transforms your natural language requirements into ComfyUI workflow JSON files and workflow instructions.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/montenegronyc/comfyrter)
 [![CI](https://github.com/montenegronyc/comfyrter/workflows/CI/badge.svg)](https://github.com/montenegronyc/comfyrter/actions)
