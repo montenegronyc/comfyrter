@@ -183,6 +183,9 @@ export class WorkflowConstructor {
       });
     }
     
+    // Update output links arrays based on created links
+    this.updateOutputLinks(nodes, this.currentLinks);
+    
     // Convert nodes array to ComfyUI workflow format
     const workflow: ComfyUIWorkflow = {
       version: 1,
@@ -403,6 +406,9 @@ export class WorkflowConstructor {
       });
     }
     
+    // Update output links arrays based on created links
+    this.updateOutputLinks(nodes, this.currentLinks);
+    
     // Convert nodes array to ComfyUI workflow format
     const workflow: ComfyUIWorkflow = {
       version: 1,
@@ -476,7 +482,7 @@ export class WorkflowConstructor {
       }
     }
     
-    return {
+    const node: ComfyUINode = {
       id: nodeId,
       type: classType,
       pos: [Math.random() * 1000, Math.random() * 1000],
@@ -489,6 +495,8 @@ export class WorkflowConstructor {
       properties: {},
       widgets_values: widgetValues.length > 0 ? widgetValues : undefined
     };
+    
+    return node;
   }
   
   private inferInputType(value: unknown): string {
@@ -533,7 +541,7 @@ export class WorkflowConstructor {
     const outputs = outputMap[classType] || [];
     return outputs.map(output => ({
       ...output,
-      links: null
+      links: []  // Initialize as empty array instead of null
     }));
   }
   
@@ -775,6 +783,35 @@ export class WorkflowConstructor {
       negative: [controlNetApply.id as number, 1]
     };
   }
+  
+  // Update output links arrays for all nodes based on created links
+  private updateOutputLinks(nodes: ComfyUINode[], links: ComfyUILink[]): void {
+    // First, ensure all nodes have their outputs initialized with empty links arrays
+    nodes.forEach(node => {
+      if (node.outputs) {
+        node.outputs.forEach(output => {
+          if (!output.links) {
+            output.links = [];
+          }
+        });
+      }
+    });
+    
+    // Now populate the links arrays based on the links
+    links.forEach(link => {
+      const originNode = nodes.find(node => node.id === link.origin_id);
+      if (originNode && originNode.outputs) {
+        const outputSlot = typeof link.origin_slot === 'number' ? link.origin_slot : parseInt(link.origin_slot as string);
+        if (originNode.outputs[outputSlot]) {
+          if (!originNode.outputs[outputSlot].links) {
+            originNode.outputs[outputSlot].links = [];
+          }
+          originNode.outputs[outputSlot].links!.push(link.id);
+        }
+      }
+    });
+  }
+  
   
   // Utility method to validate and clean workflow
   public validateWorkflow(workflow: ComfyUIWorkflow): { isValid: boolean; errors: string[] } {
