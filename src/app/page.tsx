@@ -47,7 +47,7 @@ export default function Home() {
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
             Transform your creative ideas into ComfyUI workflow JSON files. 
-            Simply describe what you want to create, and we&apos;ll generate the complete workflow for you.
+            Simply describe what features and attributes you want, and we&apos;ll generate the complete workflow for you.
           </p>
         </div>
 
