@@ -10,7 +10,7 @@ import { ComfyUIWorkflow, WorkflowExplanation } from '@/lib/types'
 import { EnhancedWorkflowParser, ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
 import { ParameterOptimizer, QualityMetrics } from '@/lib/parameter-optimizer'
 import { STYLE_PRESETS } from '@/lib/model-knowledge-base'
-import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info } from 'lucide-react'
+import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info, Check } from 'lucide-react'
 
 const EXAMPLE_PROMPTS = [
   "Generate a fantasy landscape with a castle, then upscale it 2x and add film grain",
@@ -30,6 +30,7 @@ export function WorkflowGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true)
+  const [isCopied, setIsCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const constructor = new WorkflowConstructor()
@@ -105,9 +106,12 @@ export function WorkflowGenerator() {
     
     try {
       await copyToClipboard(JSON.stringify(workflow, null, 2))
-      // Could add a toast notification here
+      setIsCopied(true)
+      // Reset the copied state after 2 seconds
+      setTimeout(() => setIsCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy to clipboard:', err)
+      setError('Failed to copy to clipboard')
     }
   }
 
@@ -118,6 +122,7 @@ export function WorkflowGenerator() {
     setContext(null)
     setEnhancedSteps([])
     setQualityMetrics(null)
+    setIsCopied(false)
     setError(null)
   }
 
@@ -131,6 +136,7 @@ export function WorkflowGenerator() {
       setContext(null)
       setEnhancedSteps([])
       setQualityMetrics(null)
+      setIsCopied(false)
       setError(null)
     }
   }
@@ -397,8 +403,17 @@ export function WorkflowGenerator() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleCopyJson}>
-                  <Copy className="h-4 w-4" />
-                  Copy
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDownload}>
                   <Download className="h-4 w-4" />
