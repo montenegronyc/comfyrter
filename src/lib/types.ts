@@ -10,7 +10,9 @@ export interface ComfyUINode {
 }
 
 export interface ComfyUIWorkflow {
-  version?: number;
+  version: number;
+  nodes: Record<string, ComfyUINode>;
+  state: Record<string, unknown>;
   extra?: {
     ds?: {
       scale?: number;
@@ -28,7 +30,6 @@ export interface ComfyUIWorkflow {
     extra?: Record<string, unknown>;
     version?: number;
   };
-  [nodeId: string]: ComfyUINode | number | Record<string, unknown> | undefined;
 }
 
 export interface WorkflowConnection {
