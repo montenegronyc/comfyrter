@@ -2,11 +2,19 @@
 
 export interface ComfyUINode {
   id: string;
-  class_type: string;
-  inputs: Record<string, unknown>;
-  _meta?: {
-    title?: string;
-  };
+  type: string;
+  pos: [number, number];
+  size: [number, number];
+  flags: Record<string, unknown>;
+  order: number;
+  mode: number;
+  inputs: unknown[];
+  outputs: unknown[];
+  properties: Record<string, unknown>;
+  widgets_values?: unknown[];
+  color?: string;
+  bgcolor?: string;
+  title?: string;
 }
 
 export interface ComfyUIWorkflow {

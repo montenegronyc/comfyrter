@@ -402,14 +402,35 @@ export class WorkflowConstructor {
     const nodeId = this.nodeCounter.toString();
     this.nodeCounter++;
     
+    // Convert inputs object to array format expected by ComfyUI
+    const inputsArray = Object.entries(inputs).map(([key, value]) => ({
+      name: key,
+      type: this.inferInputType(value),
+      link: Array.isArray(value) && value.length === 2 ? value[1] : null,
+      value: Array.isArray(value) && value.length === 2 ? null : value
+    }));
+    
     return {
       id: nodeId,
-      class_type: classType,
-      inputs: inputs,
-      _meta: {
-        title: classType
-      }
+      type: classType,
+      pos: [Math.random() * 1000, Math.random() * 1000], // Random position for now
+      size: [200, 100], // Default size
+      flags: {},
+      order: this.nodeCounter,
+      mode: 0, // 0 = normal mode
+      inputs: inputsArray,
+      outputs: [],
+      properties: {},
+      title: classType
     };
+  }
+  
+  private inferInputType(value: unknown): string {
+    if (typeof value === 'string') return 'STRING';
+    if (typeof value === 'number') return 'NUMBER';
+    if (typeof value === 'boolean') return 'BOOLEAN';
+    if (Array.isArray(value)) return 'CONNECTION';
+    return 'UNKNOWN';
   }
   
   private addIntelligentGenerationNodes(
@@ -646,16 +667,21 @@ export class WorkflowConstructor {
     }
     
     for (const node of workflow.nodes) {
-      const definition = getNodeDefinition(node.class_type);
+      const definition = getNodeDefinition(node.type);
       if (!definition) {
-        errors.push(`Unknown node type: ${node.class_type}`);
+        errors.push(`Unknown node type: ${node.type}`);
         continue;
       }
       
       // Check required inputs
+      const nodeInputNames = node.inputs.map((input: unknown) => 
+        typeof input === 'object' && input !== null && 'name' in input 
+          ? (input as { name: string }).name 
+          : ''
+      );
       for (const [inputName, inputDef] of Object.entries(definition.inputs)) {
-        if (inputDef.required && !(inputName in node.inputs)) {
-          errors.push(`Node ${node.id} (${node.class_type}) missing required input: ${inputName}`);
+        if (inputDef.required && !nodeInputNames.includes(inputName)) {
+          errors.push(`Node ${node.id} (${node.type}) missing required input: ${inputName}`);
         }
       }
     }
