@@ -7,7 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { WorkflowConstructor } from '@/lib/workflow-constructor'
 import { downloadJSON, copyToClipboard, generateTimestamp } from '@/lib/utils'
 import { ComfyUIWorkflow, WorkflowExplanation } from '@/lib/types'
-import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2 } from 'lucide-react'
+import { EnhancedWorkflowParser, ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
+import { ParameterOptimizer, QualityMetrics } from '@/lib/parameter-optimizer'
+import { STYLE_PRESETS } from '@/lib/model-knowledge-base'
+import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info } from 'lucide-react'
 
 const EXAMPLE_PROMPTS = [
   "Generate a fantasy landscape with a castle, then upscale it 2x and add film grain",
@@ -21,11 +24,16 @@ export function WorkflowGenerator() {
   const [description, setDescription] = useState('')
   const [workflow, setWorkflow] = useState<ComfyUIWorkflow | null>(null)
   const [explanation, setExplanation] = useState<WorkflowExplanation | null>(null)
+  const [context, setContext] = useState<ParsedWorkflowContext | null>(null)
+  const [enhancedSteps, setEnhancedSteps] = useState<EnhancedWorkflowStep[]>([])
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isJsonExpanded, setIsJsonExpanded] = useState(false)
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const constructor = new WorkflowConstructor()
+  const enhancedParser = new EnhancedWorkflowParser()
 
   const generateWorkflow = async () => {
     if (!description.trim()) {
@@ -40,7 +48,34 @@ export function WorkflowGenerator() {
       // Simulate some processing time for better UX
       await new Promise(resolve => setTimeout(resolve, 1000))
       
+      // First, use enhanced parser for intelligent analysis
+      const enhanced = enhancedParser.parseDescription(description.trim())
+      setContext(enhanced.context)
+      setEnhancedSteps(enhanced.steps)
+      
+      // Generate workflow using existing constructor
       const result = constructor.generateWorkflow(description.trim())
+      
+      // Calculate quality metrics if we have parameters
+      if (enhanced.steps.length > 0) {
+        const firstStep = enhanced.steps[0]
+        if (firstStep.action === 'generate' && firstStep.optimizations) {
+          const metrics = ParameterOptimizer.calculateQualityMetrics(
+            firstStep.optimizations as unknown as Parameters<typeof ParameterOptimizer.calculateQualityMetrics>[0],
+            {
+              imageType: enhanced.context.detectedImageType as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
+              quality: enhanced.context.detectedQuality as 'draft' | 'standard' | 'high' | 'ultra',
+              style: enhanced.context.detectedStyle as 'realistic' | 'artistic' | 'anime' | 'fantasy' | 'cyberpunk' | 'vintage',
+              complexity: enhanced.context.detectedComplexity as 'simple' | 'medium' | 'complex',
+              aspectRatio: enhanced.context.aspectRatio,
+              hasUpscaling: enhanced.steps.some(s => s.action === 'upscale'),
+              hasEffects: enhanced.steps.some(s => s.action === 'effect')
+            },
+            enhanced.steps.filter(s => s.action === 'lora').length
+          )
+          setQualityMetrics(metrics)
+        }
+      }
       
       // Validate the generated workflow
       const validation = constructor.validateWorkflow(result.workflow)
@@ -80,7 +115,24 @@ export function WorkflowGenerator() {
     setDescription(example)
     setWorkflow(null)
     setExplanation(null)
+    setContext(null)
+    setEnhancedSteps([])
+    setQualityMetrics(null)
     setError(null)
+  }
+
+  const insertStylePreset = (presetKey: string) => {
+    const preset = STYLE_PRESETS[presetKey]
+    if (preset) {
+      const description = `Create ${preset.description.toLowerCase()}`
+      setDescription(description)
+      setWorkflow(null)
+      setExplanation(null)
+      setContext(null)
+      setEnhancedSteps([])
+      setQualityMetrics(null)
+      setError(null)
+    }
   }
 
   return (
@@ -130,28 +182,169 @@ export function WorkflowGenerator() {
         </CardContent>
       </Card>
 
-      {/* Example Prompts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Example Prompts</CardTitle>
-          <CardDescription>
-            Click any example below to try it out
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2">
-            {EXAMPLE_PROMPTS.map((example, index) => (
-              <button
-                key={index}
-                onClick={() => insertExample(example)}
-                className="text-left p-3 rounded-md border border-border hover:bg-muted/50 transition-colors text-sm"
+      {/* Style Presets */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Style Presets
+            </CardTitle>
+            <CardDescription>
+              Quick-start with intelligent style templates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2">
+              {Object.entries(STYLE_PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => insertStylePreset(key)}
+                  className="text-left p-3 rounded-md border border-border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="font-medium text-sm">{preset.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{preset.description}</div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Example Prompts */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Example Prompts</CardTitle>
+            <CardDescription>
+              Try these natural language descriptions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2">
+              {EXAMPLE_PROMPTS.map((example, index) => (
+                <button
+                  key={index}
+                  onClick={() => insertExample(example)}
+                  className="text-left p-3 rounded-md border border-border hover:bg-muted/50 transition-colors text-sm"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Intelligent Analysis */}
+      {context && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Intelligent Analysis
+                </CardTitle>
+                <CardDescription>
+                  AI-powered analysis of your workflow description
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
               >
-                {example}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                {isAnalysisExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {isAnalysisExpanded && (
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">DETECTED STYLE</div>
+                  <div className="text-sm font-medium capitalize">{context.detectedStyle}</div>
+                </div>
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">IMAGE TYPE</div>
+                  <div className="text-sm font-medium capitalize">{context.detectedImageType}</div>
+                </div>
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">QUALITY LEVEL</div>
+                  <div className="text-sm font-medium capitalize">{context.detectedQuality}</div>
+                </div>
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">CONFIDENCE</div>
+                  <div className="text-sm font-medium">{Math.round(context.confidence * 100)}%</div>
+                </div>
+              </div>
+
+              {qualityMetrics && (
+                <div className="bg-muted/50 p-4 rounded-md mb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm font-medium">Quality Metrics</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Estimated Time:</span>
+                      <div className="font-medium">{qualityMetrics.expectedTime}s</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Memory Usage:</span>
+                      <div className="font-medium">{Math.round(qualityMetrics.memoryUsage / 1024)}GB</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Quality Score:</span>
+                      <div className="font-medium">{qualityMetrics.qualityScore}/100</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Token Cost:</span>
+                      <div className="font-medium">${qualityMetrics.tokenCost}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {enhancedSteps.length > 0 && (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">Enhanced Workflow Steps</div>
+                  {enhancedSteps.map((step, index) => (
+                    <div key={index} className="flex gap-3 p-3 bg-background border rounded-md">
+                      <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
+                        {index + 1}
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium capitalize">{step.action}</span>
+                          <span className="text-xs bg-muted px-2 py-1 rounded">
+                            {Math.round(step.confidence * 100)}% confidence
+                          </span>
+                        </div>
+                        {step.metadata.detectedStyle && (
+                          <div className="text-xs text-muted-foreground">
+                            Style: {step.metadata.detectedStyle} | 
+                            Quality: {step.metadata.detectedQuality} | 
+                            Aspect: {step.metadata.suggestedAspectRatio}
+                          </div>
+                        )}
+                        {step.suggestions.length > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            💡 {step.suggestions[0]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Results Section */}
       {explanation && (

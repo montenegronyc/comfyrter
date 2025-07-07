@@ -1,18 +1,29 @@
 import { ComfyUIWorkflow, ComfyUINode, ParsedWorkflowStep, WorkflowExplanation } from './types';
 import { getNodeDefinition } from './node-definitions';
 import { WorkflowParser } from './workflow-parser';
+import { EnhancedWorkflowParser } from './enhanced-workflow-parser';
+import { ModelSelector } from './model-knowledge-base';
+import { ParameterOptimizer } from './parameter-optimizer';
 
 export class WorkflowConstructor {
   private parser: WorkflowParser;
+  private enhancedParser: EnhancedWorkflowParser;
   private nodeCounter: number = 1;
   
   constructor() {
     this.parser = new WorkflowParser();
+    this.enhancedParser = new EnhancedWorkflowParser();
   }
   
   public generateWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
-    const steps = this.parser.parseDescription(description);
-    const prompts = this.parser.extractPrompt(description);
+    // Use intelligent workflow generation
+    try {
+      return this.generateIntelligentWorkflow(description);
+    } catch (error) {
+      console.warn('Falling back to basic workflow generation:', error);
+      // Fallback to basic workflow generation
+      const steps = this.parser.parseDescription(description);
+      const prompts = this.parser.extractPrompt(description);
     
     const workflow: ComfyUIWorkflow = {};
     const explanationSteps: WorkflowExplanation['steps'] = [];
@@ -172,6 +183,207 @@ export class WorkflowConstructor {
     };
     
     return { workflow, explanation };
+    } // End of fallback catch block
+  }
+  
+  // Enhanced workflow generation with intelligent model selection
+  public generateIntelligentWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
+    const enhanced = this.enhancedParser.parseDescription(description);
+    const prompts = this.enhancedParser.extractPrompt(description);
+    
+    const workflow: ComfyUIWorkflow = {};
+    const explanationSteps: WorkflowExplanation['steps'] = [];
+    
+    // Select optimal model based on context
+    const selectedModel = ModelSelector.selectBestModel(enhanced.context.keywords, enhanced.context.detectedStyle);
+    const modelName = selectedModel?.name || 'v1-5-pruned-emaonly.safetensors';
+    
+    // Always start with model loading
+    const modelLoadNode = this.createNode('CheckpointLoaderSimple', {
+      ckpt_name: modelName
+    });
+    workflow[modelLoadNode.id] = modelLoadNode;
+    
+    // Create text encoding nodes
+    const positiveTextNode = this.createNode('CLIPTextEncode', {
+      text: prompts.positive,
+      clip: [modelLoadNode.id, 1]
+    });
+    workflow[positiveTextNode.id] = positiveTextNode;
+    
+    const negativeTextNode = this.createNode('CLIPTextEncode', {
+      text: prompts.negative,
+      clip: [modelLoadNode.id, 1]
+    });
+    workflow[negativeTextNode.id] = negativeTextNode;
+    
+    // Track the current model and conditioning nodes for chaining
+    let currentModel: [string, number] = [modelLoadNode.id, 0];
+    let currentClip: [string, number] = [modelLoadNode.id, 1];
+    let currentPositive: [string, number] = [positiveTextNode.id, 0];
+    let currentNegative: [string, number] = [negativeTextNode.id, 0];
+    const currentVAE: [string, number] = [modelLoadNode.id, 2];
+    let currentImage: [string, number] | null = null;
+    
+    explanationSteps.push({
+      step: 1,
+      description: `Load intelligent model selection: ${modelName}`,
+      nodeType: 'CheckpointLoaderSimple',
+      parameters: { model: modelName }
+    });
+    
+    explanationSteps.push({
+      step: 2,
+      description: `Enhanced prompt: "${prompts.positive}"`,
+      nodeType: 'CLIPTextEncode',
+      parameters: { text: prompts.positive }
+    });
+    
+    explanationSteps.push({
+      step: 3,
+      description: `Intelligent negative prompt: "${prompts.negative}"`,
+      nodeType: 'CLIPTextEncode',
+      parameters: { text: prompts.negative }
+    });
+    
+    let stepCounter = 4;
+    
+    // Select and apply optimal LoRAs first
+    const selectedLoras = ModelSelector.selectLoras(enhanced.context.keywords, enhanced.context.detectedStyle);
+    for (const { model: loraModel, strength } of selectedLoras) {
+      const loraResult = this.addLoRANode(workflow, {
+        action: 'lora',
+        parameters: {
+          name: loraModel.name,
+          strength_model: strength,
+          strength_clip: strength
+        },
+        dependencies: [],
+        keywords: []
+      } as ParsedWorkflowStep, currentModel, currentClip);
+      
+      currentModel = loraResult.model;
+      currentClip = loraResult.clip;
+      
+      // Re-encode text with new CLIP
+      const newPositiveTextNode = this.createNode('CLIPTextEncode', {
+        text: prompts.positive,
+        clip: currentClip
+      });
+      workflow[newPositiveTextNode.id] = newPositiveTextNode;
+      
+      const newNegativeTextNode = this.createNode('CLIPTextEncode', {
+        text: prompts.negative,
+        clip: currentClip
+      });
+      workflow[newNegativeTextNode.id] = newNegativeTextNode;
+      
+      currentPositive = [newPositiveTextNode.id, 0];
+      currentNegative = [newNegativeTextNode.id, 0];
+      
+      explanationSteps.push({
+        step: stepCounter++,
+        description: `Apply intelligent LoRA: ${loraModel.name} (strength: ${strength})`,
+        nodeType: 'LoraLoader',
+        parameters: { name: loraModel.name, strength }
+      });
+    }
+    
+    // Process enhanced workflow steps
+    for (const step of enhanced.steps) {
+      switch (step.action) {
+        case 'generate':
+          const result = this.addIntelligentGenerationNodes(
+            workflow, 
+            step, 
+            currentModel, 
+            currentPositive, 
+            currentNegative, 
+            currentVAE,
+            enhanced.context,
+            selectedModel,
+            selectedLoras
+          );
+          currentImage = result.image;
+          
+          explanationSteps.push({
+            step: stepCounter++,
+            description: `Generate with optimized parameters (${Math.round(step.confidence * 100)}% confidence)`,
+            nodeType: 'KSampler',
+            parameters: step.parameters
+          });
+          
+          explanationSteps.push({
+            step: stepCounter++,
+            description: 'Decode latent to final image',
+            nodeType: 'VAEDecode',
+            parameters: {}
+          });
+          break;
+          
+        case 'upscale':
+          if (currentImage) {
+            currentImage = this.addUpscaleNode(workflow, step, currentImage);
+            explanationSteps.push({
+              step: stepCounter++,
+              description: `Upscale image by ${step.parameters.factor || 2}x using ${step.parameters.method || 'latent'} method`,
+              nodeType: step.parameters.method === 'model' ? 'ImageUpscaleWithModel' : 'ImageScale',
+              parameters: step.parameters
+            });
+          }
+          break;
+          
+        case 'effect':
+          if (currentImage) {
+            currentImage = this.addEffectNode(workflow, step, currentImage);
+            explanationSteps.push({
+              step: stepCounter++,
+              description: `Apply ${step.parameters.type} effect with strength ${step.parameters.strength || 0.5}`,
+              nodeType: 'ImageBlend',
+              parameters: step.parameters
+            });
+          }
+          break;
+          
+        case 'controlnet':
+          if (currentImage) {
+            const controlResult = this.addControlNetNode(workflow, step, currentPositive, currentNegative, currentImage);
+            currentPositive = controlResult.positive;
+            currentNegative = controlResult.negative;
+            
+            explanationSteps.push({
+              step: stepCounter++,
+              description: `Apply ControlNet ${step.parameters.type} with strength ${step.parameters.strength || 1.0}`,
+              nodeType: 'ControlNetApply',
+              parameters: step.parameters
+            });
+          }
+          break;
+      }
+    }
+    
+    // Add final preview/save node if we have an image
+    if (currentImage) {
+      const previewNode = this.createNode('PreviewImage', {
+        images: currentImage
+      });
+      workflow[previewNode.id] = previewNode;
+      
+      explanationSteps.push({
+        step: stepCounter++,
+        description: 'Preview final image',
+        nodeType: 'PreviewImage',
+        parameters: {}
+      });
+    }
+    
+    const explanation: WorkflowExplanation = {
+      title: 'Intelligent ComfyUI Workflow',
+      steps: explanationSteps,
+      summary: `Generated intelligent workflow with ${Object.keys(workflow).length} nodes using ${selectedModel?.name || 'default model'} and ${selectedLoras.length} LoRAs`
+    };
+    
+    return { workflow, explanation };
   }
   
   private createNode(classType: string, inputs: Record<string, unknown>): ComfyUINode {
@@ -185,6 +397,68 @@ export class WorkflowConstructor {
       _meta: {
         title: classType
       }
+    };
+  }
+  
+  private addIntelligentGenerationNodes(
+    workflow: ComfyUIWorkflow,
+    _step: unknown,
+    model: [string, number],
+    positive: [string, number],
+    negative: [string, number],
+    vae: [string, number],
+    context: unknown,
+    selectedModel: unknown,
+    selectedLoras: unknown[]
+  ): { latent: [string, number]; image: [string, number] } {
+    // Use parameter optimization for intelligent generation
+    const optimizedParams = ParameterOptimizer.optimizeParameters(
+      {
+        imageType: (context as { detectedImageType: string }).detectedImageType as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
+        quality: (context as { detectedQuality: string }).detectedQuality as 'draft' | 'standard' | 'high' | 'ultra',
+        style: (context as { detectedStyle: string }).detectedStyle as 'realistic' | 'artistic' | 'anime' | 'fantasy' | 'cyberpunk' | 'vintage',
+        complexity: (context as { detectedComplexity: string }).detectedComplexity as 'simple' | 'medium' | 'complex',
+        aspectRatio: (context as { aspectRatio: string }).aspectRatio,
+        hasUpscaling: false,
+        hasEffects: false
+      },
+      selectedModel as Parameters<typeof ParameterOptimizer.optimizeParameters>[1],
+      selectedLoras as Parameters<typeof ParameterOptimizer.optimizeParameters>[2]
+    );
+    
+    // Create empty latent with optimized dimensions
+    const emptyLatentNode = this.createNode('EmptyLatentImage', {
+      width: optimizedParams.width,
+      height: optimizedParams.height,
+      batch_size: 1
+    });
+    workflow[emptyLatentNode.id] = emptyLatentNode;
+    
+    // Create sampler with optimized parameters
+    const samplerNode = this.createNode('KSampler', {
+      model: model,
+      positive: positive,
+      negative: negative,
+      latent_image: [emptyLatentNode.id, 0],
+      seed: optimizedParams.seed || -1,
+      steps: optimizedParams.steps,
+      cfg: optimizedParams.cfg,
+      sampler_name: optimizedParams.sampler,
+      scheduler: optimizedParams.scheduler,
+      denoise: optimizedParams.denoise
+    });
+    workflow[samplerNode.id] = samplerNode;
+    
+    // Create VAE decode
+    const vaeDecodeNode = this.createNode('VAEDecode', {
+      samples: [samplerNode.id, 0],
+      vae: vae
+    });
+    workflow[vaeDecodeNode.id] = vaeDecodeNode;
+    
+    return {
+      latent: [samplerNode.id, 0],
+      image: [vaeDecodeNode.id, 0]
     };
   }
   
