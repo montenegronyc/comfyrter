@@ -179,11 +179,13 @@ export class ParameterOptimizer {
     let steps = baseSteps[context.quality];
 
     // Adjust for sampler efficiency (more efficient = fewer steps needed)
-    const efficiency = (samplerPerf.speed + samplerPerf.quality) / 2;
-    if (efficiency >= 8) {
-      steps = Math.max(steps - 5, 10);
-    } else if (efficiency <= 5) {
-      steps += 10;
+    if (samplerPerf) {
+      const efficiency = (samplerPerf.speed + samplerPerf.quality) / 2;
+      if (efficiency >= 8) {
+        steps = Math.max(steps - 5, 10);
+      } else if (efficiency <= 5) {
+        steps += 10;
+      }
     }
 
     // Adjust for complexity
@@ -315,7 +317,7 @@ export class ParameterOptimizer {
     
     // Adjust for sampler efficiency
     const samplerPerf = this.SAMPLER_PERFORMANCE[params.sampler];
-    const samplerMultiplier = 11 - samplerPerf.speed; // Convert speed to time multiplier
+    const samplerMultiplier = samplerPerf ? (11 - samplerPerf.speed) : 5; // Convert speed to time multiplier, default to 5
     const estimatedTime = baseTime * (samplerMultiplier / 10) * (1 + loraCount * 0.2);
 
     // Estimate memory usage
@@ -329,7 +331,7 @@ export class ParameterOptimizer {
     qualityScore += Math.min((params.steps - 15) * 1.5, 30);
     
     // Sampler contribution
-    qualityScore += samplerPerf.quality * 3;
+    qualityScore += samplerPerf ? samplerPerf.quality * 3 : 15; // Default to average quality
     
     // Resolution contribution
     qualityScore += Math.min((pixelCount / 512 / 512 - 1) * 15, 20);
