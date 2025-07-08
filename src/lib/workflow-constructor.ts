@@ -498,13 +498,32 @@ export class WorkflowConstructor {
           link: linkId
         });
       } else {
-        // This is a widget value
+        // This is a widget value - add to inputs but not as connection
         inputsArray.push({
           name: key,
           type: this.inferInputType(value),
           link: null
         });
-        widgetValues.push(value);
+      }
+    }
+    
+    // Create widgets_values in the correct order for specific node types
+    if (classType === 'KSampler') {
+      // KSampler expects widgets in this order: [seed, steps, cfg, sampler_name, scheduler, denoise]
+      widgetValues.push(
+        inputs.seed || Math.floor(Math.random() * 2147483647),
+        inputs.steps || 20,
+        inputs.cfg || 8.0,
+        inputs.sampler_name || 'euler',
+        inputs.scheduler || 'normal',
+        inputs.denoise || 1.0
+      );
+    } else {
+      // For other nodes, add widget values in input order
+      for (const [, value] of Object.entries(inputs)) {
+        if (!Array.isArray(value) || value.length !== 2) {
+          widgetValues.push(value);
+        }
       }
     }
     
