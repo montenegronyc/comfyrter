@@ -1,42 +1,17 @@
 import { WorkflowGenerator } from '@/components/workflow-generator'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Wand2, Github } from 'lucide-react'
+import { Wand2 } from 'lucide-react'
 import Image from 'next/image'
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <div className="rounded-lg bg-primary p-2">
-                <Wand2 className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold">Comfyrter</h1>
-                <p className="text-xs text-muted-foreground">ComfyUI Workflow Generator</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href="https://github.com/montenegronyc"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
-            >
-              <Github className="h-4 w-4" />
-              GitHub
-            </a>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
       {/* Hero Section with Splash Image */}
       <div className="relative overflow-hidden">
+        {/* Floating Theme Toggle */}
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background"></div>
         <Image 
           src="/comfyrter_image_v01.png" 
@@ -125,6 +100,14 @@ export default function Home() {
                 className="hover:text-foreground transition-colors"
               >
                 ComfyUI Documentation
+              </a>
+              <a
+                href="https://leetowndrow.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                leetowndrow.com
               </a>
               <a
                 href="https://github.com/montenegronyc"
