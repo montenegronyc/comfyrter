@@ -25,27 +25,27 @@ export interface SetupStatus {
 // Recommended Hugging Face models for command parsing
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
+    name: 'gpt2',
+    size: 'API',
+    description: 'GPT-2 - Reliable and fast for text generation tasks',
+    recommended: true,
+    parameters: '124 million',
+    memoryRequirement: 'Hosted on Hugging Face'
+  },
+  {
     name: 'microsoft/DialoGPT-medium',
     size: 'API',
     description: 'Microsoft DialoGPT Medium - Fast and reliable for parsing tasks',
-    recommended: true,
+    recommended: false,
     parameters: '345 million',
     memoryRequirement: 'Hosted on Hugging Face'
   },
   {
-    name: 'meta-llama/Llama-2-7b-chat-hf',
+    name: 'distilgpt2',
     size: 'API',
-    description: 'Llama 2 7B Chat - High quality instruction following',
+    description: 'DistilGPT2 - Lightweight and fast text generation',
     recommended: true,
-    parameters: '7 billion',
-    memoryRequirement: 'Hosted on Hugging Face'
-  },
-  {
-    name: 'mistralai/Mistral-7B-Instruct-v0.1',
-    size: 'API',
-    description: 'Mistral 7B Instruct - Good balance of speed and accuracy',
-    recommended: true,
-    parameters: '7 billion',
+    parameters: '82 million',
     memoryRequirement: 'Hosted on Hugging Face'
   }
 ];

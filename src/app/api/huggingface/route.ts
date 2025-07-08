@@ -21,7 +21,7 @@ export async function GET() {
 
     // Test API accessibility with a simple request
     console.log('HF API Check - Testing API connection...');
-    const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
+    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

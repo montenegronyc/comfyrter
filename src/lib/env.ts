@@ -22,7 +22,7 @@ export function isHuggingFaceAvailable(): boolean {
 }
 
 export function getDefaultHuggingFaceModel(): string {
-  return 'microsoft/DialoGPT-medium';
+  return 'gpt2';
 }
 
 export function getHuggingFaceBaseUrl(): string {

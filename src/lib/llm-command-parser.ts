@@ -347,9 +347,9 @@ export async function isLLMParsingAvailable(): Promise<boolean> {
 export async function getAvailableModels(): Promise<string[]> {
   // For Hugging Face, we return our recommended models
   return [
-    'microsoft/DialoGPT-medium',
-    'meta-llama/Llama-2-7b-chat-hf',
-    'mistralai/Mistral-7B-Instruct-v0.1'
+    'gpt2',
+    'distilgpt2',
+    'microsoft/DialoGPT-medium'
   ];
 }
 
