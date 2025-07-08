@@ -97,7 +97,7 @@ export class OllamaCommandParser implements LLMCommandParser {
   }
 
   validateOutput(result: LLMParseResult): boolean {
-    return this.validateAgainstSchema(result, LLM_OUTPUT_SCHEMA);
+    return this.validateAgainstSchema(result);
   }
 
   private createPrompt(description: string): string {
