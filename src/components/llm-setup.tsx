@@ -208,11 +208,13 @@ export function LLMSetup() {
                   <p className="text-sm text-muted-foreground">
                     Download and install Ollama from the official website
                   </p>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Download Ollama
-                    </a>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('https://ollama.ai', '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Download Ollama
                   </Button>
                 </div>
               </div>
