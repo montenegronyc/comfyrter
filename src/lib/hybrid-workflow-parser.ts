@@ -48,7 +48,7 @@ export class HybridWorkflowParser {
 
   async parseDescription(description: string): Promise<HybridParseResult> {
     const startTime = Date.now();
-    let llmResult: LLMCommandParserResult | undefined;
+    let llmResult: LLMCommandParserResult | null | undefined;
     let fallbackReason: string | undefined;
     
     this.log('Starting hybrid parsing for:', description.substring(0, 100) + '...');
