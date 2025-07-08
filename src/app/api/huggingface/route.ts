@@ -4,14 +4,23 @@ export async function GET() {
   try {
     const token = process.env.HUGGINGFACE_API_TOKEN;
     
+    console.log('HF API Check - Token present:', !!token);
+    console.log('HF API Check - Token length:', token?.length || 0);
+    
     if (!token) {
+      console.log('HF API Check - No token found');
       return NextResponse.json({ 
         available: false, 
-        error: 'HUGGINGFACE_API_TOKEN not configured' 
+        error: 'HUGGINGFACE_API_TOKEN not configured',
+        debug: {
+          tokenPresent: false,
+          envVars: Object.keys(process.env).filter(key => key.includes('HUGGING'))
+        }
       }, { status: 200 });
     }
 
     // Test API accessibility with a simple request
+    console.log('HF API Check - Testing API connection...');
     const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
       method: 'POST',
       headers: {
@@ -28,20 +37,33 @@ export async function GET() {
       signal: AbortSignal.timeout(5000)
     });
     
+    const responseText = await response.text();
+    console.log('HF API Check - Response status:', response.status);
+    console.log('HF API Check - Response text:', responseText.substring(0, 200));
+    
     // HF API returns 200 for success, or specific error codes
     const available = response.status === 200 || response.status === 422; // 422 is validation error but API is accessible
     
     return NextResponse.json({ 
       available,
       status: response.status,
-      statusText: response.statusText
+      statusText: response.statusText,
+      debug: {
+        tokenPresent: true,
+        tokenLength: token.length,
+        responsePreview: responseText.substring(0, 200)
+      }
     });
     
   } catch (error) {
     console.error('HuggingFace API check error:', error);
     return NextResponse.json({ 
       available: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      debug: {
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      }
     }, { status: 200 });
   }
 }

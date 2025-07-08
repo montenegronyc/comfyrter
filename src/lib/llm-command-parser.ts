@@ -82,19 +82,25 @@ export class HuggingFaceCommandParser implements LLMCommandParser {
 
   async isAvailable(): Promise<boolean> {
     try {
+      console.log('HuggingFaceCommandParser: Checking API availability...');
       // Use the API route to check availability (works both client and server side)
       const response = await fetch('/api/huggingface', {
         method: 'GET',
         signal: AbortSignal.timeout(5000)
       });
       
+      console.log('HuggingFaceCommandParser: API response status:', response.status);
+      
       if (!response.ok) {
+        console.log('HuggingFaceCommandParser: API response not ok');
         return false;
       }
       
       const data = await response.json();
+      console.log('HuggingFaceCommandParser: API response data:', data);
       return data.available === true;
-    } catch {
+    } catch (error) {
+      console.error('HuggingFaceCommandParser: API check error:', error);
       return false;
     }
   }
@@ -326,9 +332,13 @@ export function createLLMCommandParser(config?: Partial<LLMConfig>): LLMCommandP
 // Utility function to check if LLM parsing is available
 export async function isLLMParsingAvailable(): Promise<boolean> {
   try {
+    console.log('isLLMParsingAvailable: Creating parser...');
     const parser = new HuggingFaceCommandParser();
-    return await parser.isAvailable();
-  } catch {
+    const result = await parser.isAvailable();
+    console.log('isLLMParsingAvailable: Result:', result);
+    return result;
+  } catch (error) {
+    console.error('isLLMParsingAvailable: Error:', error);
     return false;
   }
 }

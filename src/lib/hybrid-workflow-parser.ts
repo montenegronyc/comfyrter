@@ -142,11 +142,13 @@ export class HybridWorkflowParser {
   private async tryLLMParsing(description: string): Promise<LLMCommandParserResult | null> {
     try {
       // Check if LLM is available first
+      console.log('HybridParser: Checking LLM availability...');
       const isAvailable = await Promise.race([
         isLLMParsingAvailable(),
         new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000))
       ]);
 
+      console.log('HybridParser: LLM available:', isAvailable);
       if (!isAvailable) {
         this.log('LLM service not available');
         return null;
