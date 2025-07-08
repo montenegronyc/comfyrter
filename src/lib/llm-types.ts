@@ -64,6 +64,14 @@ export interface OllamaResponse {
   eval_duration?: number;
 }
 
+export interface HuggingFaceResponse {
+  generated_text?: string;
+  text?: string;
+  error?: string;
+}
+
+export type HuggingFaceAPIResponse = HuggingFaceResponse[] | HuggingFaceResponse | string;
+
 export interface LLMCommandParser {
   parseCommand(description: string): Promise<LLMCommandParserResult>;
   isAvailable(): Promise<boolean>;

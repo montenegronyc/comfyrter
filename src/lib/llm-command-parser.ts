@@ -1,51 +1,56 @@
-// LLM Command Parser - Core integration with Ollama for sophisticated command parsing
+// LLM Command Parser - Core integration with Hugging Face for sophisticated command parsing
 
 import {
   LLMConfig,
   LLMCommandParser,
   LLMCommandParserResult,
   LLMParseResult,
-  OllamaResponse,
   LLM_OUTPUT_SCHEMA,
   FEW_SHOT_EXAMPLES
 } from './llm-types';
+import { getHuggingFaceToken, getDefaultHuggingFaceModel, getHuggingFaceBaseUrl } from './env';
 
-export class OllamaCommandParser implements LLMCommandParser {
+export class HuggingFaceCommandParser implements LLMCommandParser {
   private config: LLMConfig = {
-    model: 'qwen2.5-coder:7b',
-    baseUrl: 'http://localhost:11434',
+    model: getDefaultHuggingFaceModel(),
+    baseUrl: getHuggingFaceBaseUrl(),
     timeout: 30000,
     confidenceThreshold: 0.6,
     maxRetries: 2
   };
 
+  private apiToken: string | null = null;
+
   constructor(config?: Partial<LLMConfig>) {
     if (config) {
       this.config = { ...this.config, ...config };
     }
+    
+    // Get API token from environment
+    this.apiToken = getHuggingFaceToken();
   }
 
   async parseCommand(description: string): Promise<LLMCommandParserResult> {
     const startTime = Date.now();
     
     try {
-      // Check if Ollama is available
-      const isOllamaAvailable = await this.isAvailable();
-      if (!isOllamaAvailable) {
+      // Check if Hugging Face API is available
+      const isHFAvailable = await this.isAvailable();
+      if (!isHFAvailable) {
         return {
           result: this.createEmptyResult(),
           confidence: 0,
           processingTime: Date.now() - startTime,
           fallbackUsed: true,
-          errors: ['Ollama service not available']
+          errors: ['Hugging Face API not available or token missing']
         };
       }
 
       // Generate the prompt
       const prompt = this.createPrompt(description);
       
-      // Make request to Ollama with structured output
-      const response = await this.makeOllamaRequest(prompt);
+      // Make request to Hugging Face with structured output
+      const response = await this.makeHuggingFaceRequest(prompt);
       
       // Parse and validate the response
       const parseResult = this.parseAndValidateResponse(response);
@@ -78,11 +83,29 @@ export class OllamaCommandParser implements LLMCommandParser {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/api/version`, {
-        method: 'GET',
+      if (!this.apiToken) {
+        return false;
+      }
+      
+      // Test API accessibility with a simple request
+      const response = await fetch(`${this.config.baseUrl}/${this.config.model}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: "test",
+          parameters: {
+            max_new_tokens: 10,
+            temperature: 0.1
+          }
+        }),
         signal: AbortSignal.timeout(5000)
       });
-      return response.ok;
+      
+      // HF API returns 200 for success, or specific error codes
+      return response.status === 200 || response.status === 422; // 422 is validation error but API is accessible
     } catch {
       return false;
     }
@@ -149,21 +172,15 @@ Respond with valid JSON only, following the schema exactly.`;
     return `${systemPrompt}\n\n${userPrompt}`;
   }
 
-  private async makeOllamaRequest(prompt: string): Promise<OllamaResponse> {
+  private async makeHuggingFaceRequest(prompt: string): Promise<{ content: string }> {
     const requestBody = {
-      model: this.config.model,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      stream: false,
-      format: LLM_OUTPUT_SCHEMA,
-      options: {
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 1000,
         temperature: 0.1, // Low temperature for more deterministic output
         top_p: 0.9,
-        top_k: 40
+        do_sample: true,
+        return_full_text: false
       }
     };
 
@@ -171,9 +188,10 @@ Respond with valid JSON only, following the schema exactly.`;
     
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
-        const response = await fetch(`${this.config.baseUrl}/api/chat`, {
+        const response = await fetch(`${this.config.baseUrl}/${this.config.model}`, {
           method: 'POST',
           headers: {
+            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
@@ -181,20 +199,31 @@ Respond with valid JSON only, following the schema exactly.`;
         });
 
         if (!response.ok) {
-          throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`Hugging Face request failed: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
-        const data: OllamaResponse = await response.json();
+        const data = await response.json();
         
-        if (!data.message?.content) {
-          throw new Error('Invalid response format from Ollama');
+        // HF API returns different formats depending on the model
+        let content = '';
+        if (Array.isArray(data) && data.length > 0) {
+          content = data[0].generated_text || data[0].text || '';
+        } else if (data.generated_text) {
+          content = data.generated_text;
+        } else if (typeof data === 'string') {
+          content = data;
+        }
+        
+        if (!content) {
+          throw new Error('Invalid response format from Hugging Face API');
         }
 
-        return data;
+        return { content };
         
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
-        console.warn(`Ollama request attempt ${attempt + 1} failed:`, lastError.message);
+        console.warn(`Hugging Face request attempt ${attempt + 1} failed:`, lastError.message);
         
         if (attempt < this.config.maxRetries - 1) {
           // Wait before retry (exponential backoff)
@@ -203,12 +232,12 @@ Respond with valid JSON only, following the schema exactly.`;
       }
     }
 
-    throw lastError || new Error('All Ollama request attempts failed');
+    throw lastError || new Error('All Hugging Face request attempts failed');
   }
 
-  private parseAndValidateResponse(response: OllamaResponse): LLMParseResult {
+  private parseAndValidateResponse(response: { content: string }): LLMParseResult {
     try {
-      const content = response.message.content.trim();
+      const content = response.content.trim();
       
       // Try to extract JSON if wrapped in code blocks
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -291,33 +320,41 @@ Respond with valid JSON only, following the schema exactly.`;
       },
       workflow_steps: [],
       extracted_context: {},
-      suggestions: ['Please try rephrasing your request or check if Ollama is running']
+      suggestions: ['Please try rephrasing your request or check if Hugging Face API is available']
     };
   }
 }
 
 // Factory function for creating parser instances
 export function createLLMCommandParser(config?: Partial<LLMConfig>): LLMCommandParser {
-  return new OllamaCommandParser(config);
+  return new HuggingFaceCommandParser(config);
 }
 
 // Utility function to check if LLM parsing is available
-export async function isLLMParsingAvailable(baseUrl = 'http://localhost:11434'): Promise<boolean> {
+export async function isLLMParsingAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${baseUrl}/api/version`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000)
-    });
-    return response.ok;
+    const parser = new HuggingFaceCommandParser();
+    return await parser.isAvailable();
   } catch {
     return false;
   }
 }
 
 // Utility function to list available models
-export async function getAvailableModels(baseUrl = 'http://localhost:11434'): Promise<string[]> {
+export async function getAvailableModels(): Promise<string[]> {
+  // For Hugging Face, we return our recommended models
+  return [
+    'microsoft/DialoGPT-medium',
+    'meta-llama/Llama-2-7b-chat-hf',
+    'mistralai/Mistral-7B-Instruct-v0.1'
+  ];
+}
+
+// Legacy function for backward compatibility
+export async function getAvailableModelsLegacy(): Promise<string[]> {
   try {
-    const response = await fetch(`${baseUrl}/api/tags`, {
+    // This would be for local Ollama compatibility
+    const response = await fetch('http://localhost:11434/api/tags', {
       method: 'GET',
       signal: AbortSignal.timeout(10000)
     });

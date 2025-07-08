@@ -1,6 +1,7 @@
 // LLM Setup and Model Management Utilities
 
 import { getAvailableModels, isLLMParsingAvailable } from './llm-command-parser';
+import { getHuggingFaceToken, isHuggingFaceAvailable } from './env';
 
 export interface ModelInfo {
   name: string;
@@ -12,40 +13,40 @@ export interface ModelInfo {
 }
 
 export interface SetupStatus {
-  ollamaInstalled: boolean;
+  huggingFaceAvailable: boolean;
   modelAvailable: boolean;
   recommendedModel?: string;
   availableModels: string[];
-  memoryAvailable?: number;
+  apiTokenConfigured?: boolean;
   errors: string[];
   suggestions: string[];
 }
 
-// Recommended models for command parsing
+// Recommended Hugging Face models for command parsing
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    name: 'qwen2.5-coder:7b',
-    size: '4.2GB',
-    description: 'Qwen 2.5 Coder 7B - Best balance of performance and speed for command parsing',
+    name: 'microsoft/DialoGPT-medium',
+    size: 'API',
+    description: 'Microsoft DialoGPT Medium - Fast and reliable for parsing tasks',
+    recommended: true,
+    parameters: '345 million',
+    memoryRequirement: 'Hosted on Hugging Face'
+  },
+  {
+    name: 'meta-llama/Llama-2-7b-chat-hf',
+    size: 'API',
+    description: 'Llama 2 7B Chat - High quality instruction following',
     recommended: true,
     parameters: '7 billion',
-    memoryRequirement: '8GB RAM minimum'
+    memoryRequirement: 'Hosted on Hugging Face'
   },
   {
-    name: 'qwen2.5-coder:14b',
-    size: '8.2GB', 
-    description: 'Qwen 2.5 Coder 14B - Higher accuracy for complex parsing tasks',
+    name: 'mistralai/Mistral-7B-Instruct-v0.1',
+    size: 'API',
+    description: 'Mistral 7B Instruct - Good balance of speed and accuracy',
     recommended: true,
-    parameters: '14 billion',
-    memoryRequirement: '16GB RAM minimum'
-  },
-  {
-    name: 'qwen2.5-coder:3b',
-    size: '2.0GB',
-    description: 'Qwen 2.5 Coder 3B - Lightweight option for basic parsing',
-    recommended: false,
-    parameters: '3 billion',
-    memoryRequirement: '4GB RAM minimum'
+    parameters: '7 billion',
+    memoryRequirement: 'Hosted on Hugging Face'
   },
   {
     name: 'llama3.2:3b',
@@ -66,41 +67,43 @@ export class LLMSetupManager {
 
   async checkSetupStatus(): Promise<SetupStatus> {
     const status: SetupStatus = {
-      ollamaInstalled: false,
+      huggingFaceAvailable: false,
       modelAvailable: false,
       availableModels: [],
+      apiTokenConfigured: false,
       errors: [],
       suggestions: []
     };
 
     try {
-      // Check if Ollama is running
-      status.ollamaInstalled = await isLLMParsingAvailable(this.baseUrl);
+      // Check if Hugging Face API token is configured
+      const hasToken = isHuggingFaceAvailable();
+      status.apiTokenConfigured = hasToken;
       
-      if (!status.ollamaInstalled) {
-        status.errors.push('Ollama is not running or not installed');
-        status.suggestions.push('Install Ollama from https://ollama.ai');
-        status.suggestions.push('Run "ollama serve" to start the service');
+      if (!hasToken) {
+        status.errors.push('Hugging Face API token not configured');
+        status.suggestions.push('Add HUGGINGFACE_API_TOKEN to your environment variables');
+        status.suggestions.push('Get a free token from https://huggingface.co/settings/tokens');
         return status;
       }
 
-      // Get available models
-      status.availableModels = await getAvailableModels(this.baseUrl);
+      // Check if Hugging Face API is available
+      status.huggingFaceAvailable = await isLLMParsingAvailable();
       
-      // Check if recommended model is available
-      const recommendedModel = this.findBestAvailableModel(status.availableModels);
-      if (recommendedModel) {
-        status.modelAvailable = true;
-        status.recommendedModel = recommendedModel;
-      } else {
-        status.errors.push('No recommended models are installed');
-        status.suggestions.push('Install a recommended model with: ollama pull qwen2.5-coder:7b');
+      if (!status.huggingFaceAvailable) {
+        status.errors.push('Hugging Face API is not accessible');
+        status.suggestions.push('Check your internet connection');
+        status.suggestions.push('Verify your API token is valid');
+        return status;
       }
 
-      // Check system memory (if possible)
-      if (typeof navigator !== 'undefined' && 'deviceMemory' in navigator) {
-        status.memoryAvailable = (navigator as Navigator & { deviceMemory?: number }).deviceMemory! * 1024; // Convert GB to MB
-      }
+      // Set available models (Hugging Face models are always "available" via API)
+      status.availableModels = RECOMMENDED_MODELS.map(model => model.name);
+      status.modelAvailable = true;
+      status.recommendedModel = RECOMMENDED_MODELS.find(m => m.recommended)?.name;
+
+      // No memory requirements for API-based models
+      // Hugging Face handles all the infrastructure
 
     } catch (error) {
       status.errors.push(`Setup check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -110,38 +113,25 @@ export class LLMSetupManager {
   }
 
   findBestAvailableModel(availableModels: string[]): string | null {
-    // Find the best recommended model that's available
-    for (const model of RECOMMENDED_MODELS.filter(m => m.recommended)) {
-      if (availableModels.some(available => available.includes(model.name))) {
-        return model.name;
-      }
-    }
-
-    // Fallback to any available recommended model
-    for (const model of RECOMMENDED_MODELS) {
-      if (availableModels.some(available => available.includes(model.name))) {
-        return model.name;
-      }
-    }
-
-    return null;
+    // For Hugging Face, we always have access to the models via API
+    // Return the first recommended model
+    const recommendedModel = RECOMMENDED_MODELS.find(m => m.recommended);
+    return recommendedModel ? recommendedModel.name : null;
   }
 
   async pullModel(modelName: string): Promise<{ success: boolean; error?: string }> {
+    // For Hugging Face, models are always available via API
+    // No "pulling" required, just verify the model exists
     try {
-      const response = await fetch(`${this.baseUrl}/api/pull`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: modelName })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to pull model: ${response.status} ${response.statusText}`);
+      const validModels = RECOMMENDED_MODELS.map(m => m.name);
+      if (validModels.includes(modelName)) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: `Model ${modelName} is not in our recommended list`
+        };
       }
-
-      return { success: true };
     } catch (error) {
       return {
         success: false,
@@ -177,35 +167,31 @@ export class LLMSetupManager {
     return [
       '# LLM Setup Instructions for Enhanced Command Parsing',
       '',
-      '## 1. Install Ollama',
-      'Visit https://ollama.ai and download the installer for your platform.',
+      '## 1. Get Hugging Face API Token',
+      'Visit https://huggingface.co/settings/tokens and create a new token with "Read" permissions.',
       '',
-      '## 2. Start Ollama Service',
+      '## 2. Configure Environment Variable',
+      'Add your token to your environment:',
       '```bash',
-      'ollama serve',
+      'export HUGGINGFACE_API_TOKEN=your_token_here',
       '```',
       '',
-      '## 3. Install Recommended Model',
-      '```bash',
-      '# For best performance (requires 8GB+ RAM)',
-      'ollama pull qwen2.5-coder:7b',
-      '',
-      '# For lower memory systems (requires 4GB+ RAM)',
-      'ollama pull qwen2.5-coder:3b',
-      '```',
+      '## 3. Recommended Models',
+      'The following models are available via API:',
+      ...RECOMMENDED_MODELS.map(model => `- ${model.name}: ${model.description}`),
       '',
       '## 4. Verify Setup',
       'The comfyrter app will automatically detect when LLM parsing is available.',
       '',
-      '## System Requirements',
-      '- **Minimum**: 4GB RAM (for 3B models)',
-      '- **Recommended**: 8GB+ RAM (for 7B models)',
-      '- **Optional**: GPU acceleration for faster inference',
+      '## Features',
+      '- **Free Tier**: 20,000 requests/month on Hugging Face',
+      '- **No Local Installation**: Everything runs via API',
+      '- **Multiple Models**: Choose from various open-source models',
       '',
       '## Troubleshooting',
-      '- Ensure Ollama is running: `ollama list`',
-      '- Check model status: `ollama show qwen2.5-coder:7b`',
-      '- Restart Ollama if needed: `ollama serve`'
+      '- Verify your API token is valid',
+      '- Check internet connectivity',
+      '- Ensure token has proper permissions'
     ];
   }
 
@@ -216,28 +202,30 @@ export class LLMSetupManager {
       '# LLM System Status Report',
       `Generated: ${new Date().toISOString()}`,
       '',
-      '## Ollama Status',
-      `- Installed: ${status.ollamaInstalled ? '✅' : '❌'}`,
-      `- Service URL: ${this.baseUrl}`,
+      '## Hugging Face Status',
+      `- API Available: ${status.huggingFaceAvailable ? '✅' : '❌'}`,
+      `- Token Configured: ${status.apiTokenConfigured ? '✅' : '❌'}`,
       '',
       '## Models',
-      `- Recommended model available: ${status.modelAvailable ? '✅' : '❌'}`,
-      `- Best available model: ${status.recommendedModel || 'None'}`,
-      `- Total models installed: ${status.availableModels.length}`,
+      `- Model available: ${status.modelAvailable ? '✅' : '❌'}`,
+      `- Recommended model: ${status.recommendedModel || 'None'}`,
+      `- Available models: ${status.availableModels.length}`,
       ''
     ];
 
     if (status.availableModels.length > 0) {
-      report.push('### Installed Models:');
+      report.push('### Available Models:');
       status.availableModels.forEach(model => {
-        const isRecommended = RECOMMENDED_MODELS.some(rec => model.includes(rec.name));
-        report.push(`- ${model} ${isRecommended ? '(Recommended)' : ''}`);
+        const modelInfo = RECOMMENDED_MODELS.find(rec => rec.name === model);
+        report.push(`- ${model} ${modelInfo?.recommended ? '(Recommended)' : ''}`);
       });
       report.push('');
     }
 
-    if (status.memoryAvailable) {
-      report.push('## System Resources');
+    report.push('## System Features');
+    report.push('- No local installation required');
+    report.push('- Free tier: 20,000 requests/month');
+    report.push('- Multiple model options available');
       report.push(`- Available memory: ${Math.round(status.memoryAvailable / 1024)}GB`);
       report.push('');
     }
@@ -262,7 +250,7 @@ export class LLMSetupManager {
 export async function quickSetupCheck(): Promise<boolean> {
   const manager = new LLMSetupManager();
   const status = await manager.checkSetupStatus();
-  return status.ollamaInstalled && status.modelAvailable;
+  return status.huggingFaceAvailable && status.modelAvailable;
 }
 
 export function getSystemRequirements(modelName?: string): string {
@@ -270,16 +258,7 @@ export function getSystemRequirements(modelName?: string): string {
   return `For ${model.name}: ${model.memoryRequirement}`;
 }
 
-export function getBestModelForSystem(availableMemoryGB?: number): ModelInfo {
-  if (!availableMemoryGB) {
-    return RECOMMENDED_MODELS[0]; // Default to 7B model
-  }
-
-  if (availableMemoryGB >= 16) {
-    return RECOMMENDED_MODELS.find(m => m.name.includes('14b')) || RECOMMENDED_MODELS[0];
-  } else if (availableMemoryGB >= 8) {
-    return RECOMMENDED_MODELS.find(m => m.name.includes('7b')) || RECOMMENDED_MODELS[0];
-  } else {
-    return RECOMMENDED_MODELS.find(m => m.name.includes('3b')) || RECOMMENDED_MODELS[2];
-  }
+export function getBestModelForSystem(): ModelInfo {
+  // For Hugging Face API, we recommend the most balanced model
+  return RECOMMENDED_MODELS.find(m => m.recommended) || RECOMMENDED_MODELS[0];
 }
