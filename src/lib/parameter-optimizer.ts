@@ -257,7 +257,14 @@ export class ParameterOptimizer {
         break;
     }
 
-    return Math.round(cfg * 10) / 10; // Round to 1 decimal
+    const finalCfg = Math.round(cfg * 10) / 10; // Round to 1 decimal
+    
+    // Safety check to ensure we never return NaN or invalid values
+    if (isNaN(finalCfg) || finalCfg <= 0) {
+      return 8.0; // Safe fallback
+    }
+    
+    return finalCfg;
   }
 
   private static selectScheduler(sampler: string, quality: string): string {

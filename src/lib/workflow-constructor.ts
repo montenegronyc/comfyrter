@@ -510,10 +510,13 @@ export class WorkflowConstructor {
     // Create widgets_values in the correct order for specific node types
     if (classType === 'KSampler') {
       // KSampler expects widgets in this order: [seed, steps, cfg, sampler_name, scheduler, denoise]
+      const cfg = inputs.cfg || 8.0;
+      const safeCfg = isNaN(Number(cfg)) ? 8.0 : Number(cfg);
+      
       widgetValues.push(
         inputs.seed || Math.floor(Math.random() * 2147483647),
         inputs.steps || 20,
-        inputs.cfg || 8.0,
+        safeCfg,
         inputs.sampler_name || 'euler',
         inputs.scheduler || 'normal',
         inputs.denoise || 1.0
@@ -527,11 +530,13 @@ export class WorkflowConstructor {
       }
     }
     
+    const position = this.calculateNodePosition(classType, nodeId);
+    
     const node: ComfyUINode = {
       id: nodeId,
       type: classType,
-      pos: [Math.random() * 1000, Math.random() * 1000],
-      size: [200, 100],
+      pos: position,
+      size: this.getNodeSize(classType),
       flags: {},
       order: nodeId,
       mode: 0,
@@ -669,6 +674,11 @@ export class WorkflowConstructor {
       selectedLoras as Parameters<typeof ParameterOptimizer.optimizeParameters>[2]
     );
     
+    // Ensure CFG is a valid number
+    const safeCfg = isNaN(optimizedParams.cfg) || optimizedParams.cfg === null || optimizedParams.cfg === undefined 
+      ? 8.0 
+      : Number(optimizedParams.cfg);
+    
     // Create empty latent with optimized dimensions
     const emptyLatentNode = this.createNode('EmptyLatentImage', {
       width: optimizedParams.width,
@@ -685,7 +695,7 @@ export class WorkflowConstructor {
       latent_image: [emptyLatentNode.id as number, 0],
       seed: optimizedParams.seed || Math.floor(Math.random() * 2147483647),
       steps: optimizedParams.steps,
-      cfg: optimizedParams.cfg,
+      cfg: safeCfg,
       sampler_name: optimizedParams.sampler,
       scheduler: optimizedParams.scheduler,
       denoise: optimizedParams.denoise
@@ -857,6 +867,76 @@ export class WorkflowConstructor {
     };
   }
   
+  // Calculate proper node position based on workflow flow
+  private calculateNodePosition(classType: string, nodeId: number): [number, number] {
+    // Define workflow stages and their positions
+    const stagePositions: Record<string, { x: number; y: number; width: number }> = {
+      // Stage 1: Model Loading (leftmost)
+      'CheckpointLoaderSimple': { x: 50, y: 200, width: 250 },
+      'LoraLoader': { x: 50, y: 400, width: 250 },
+      
+      // Stage 2: Text Processing
+      'CLIPTextEncode': { x: 350, y: 150, width: 200 },
+      
+      // Stage 3: ControlNet (if used)
+      'LoadImage': { x: 350, y: 350, width: 200 },
+      'ControlNetLoader': { x: 350, y: 500, width: 200 },
+      'ControlNetApplyAdvanced': { x: 600, y: 400, width: 250 },
+      
+      // Stage 4: Generation Setup
+      'EmptyLatentImage': { x: 600, y: 50, width: 200 },
+      
+      // Stage 5: Main Generation
+      'KSampler': { x: 850, y: 200, width: 300 },
+      
+      // Stage 6: Decoding
+      'VAEDecode': { x: 1200, y: 200, width: 200 },
+      
+      // Stage 7: Post-processing
+      'ImageScale': { x: 1450, y: 150, width: 200 },
+      'ImageUpscaleWithModel': { x: 1450, y: 300, width: 250 },
+      'UpscaleModelLoader': { x: 1450, y: 450, width: 200 },
+      'ImageBlend': { x: 1450, y: 600, width: 200 },
+      
+      // Stage 8: Output
+      'PreviewImage': { x: 1700, y: 200, width: 200 }
+    };
+    
+    const stage = stagePositions[classType];
+    if (stage) {
+      // Count nodes of same type to stack them vertically
+      const sameTypeCount = Math.floor((nodeId - 1) / 10); // Rough estimation
+      return [stage.x, stage.y + (sameTypeCount * 150)];
+    }
+    
+    // Fallback to flow-based positioning
+    const column = Math.floor((nodeId - 1) / 3);
+    const row = (nodeId - 1) % 3;
+    return [200 + column * 300, 100 + row * 200];
+  }
+  
+  // Get appropriate node size based on type
+  private getNodeSize(classType: string): [number, number] {
+    const sizeMap: Record<string, [number, number]> = {
+      'CheckpointLoaderSimple': [320, 98],
+      'CLIPTextEncode': [210, 76],
+      'KSampler': [315, 262],
+      'VAEDecode': [210, 46],
+      'EmptyLatentImage': [210, 106],
+      'LoraLoader': [315, 126],
+      'PreviewImage': [210, 246],
+      'ControlNetLoader': [315, 58],
+      'ControlNetApplyAdvanced': [315, 186],
+      'LoadImage': [315, 314],
+      'ImageScale': [315, 130],
+      'ImageUpscaleWithModel': [241, 46],
+      'UpscaleModelLoader': [315, 58],
+      'ImageBlend': [315, 102]
+    };
+    
+    return sizeMap[classType] || [200, 100];
+  }
+
   // Update output links arrays for all nodes based on created links
   private updateOutputLinks(nodes: ComfyUINode[], links: ComfyUILink[]): void {
     // First, ensure all nodes have their outputs initialized with empty links arrays
