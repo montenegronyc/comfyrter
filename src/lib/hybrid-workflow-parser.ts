@@ -14,7 +14,7 @@ export interface HybridParseResult {
   suggestions: string[];
   errors?: string[];
   debugInfo?: {
-    llmResult?: LLMCommandParserResult;
+    llmResult?: LLMCommandParserResult | null;
     fallbackReason?: string;
     enhancedParserUsed: boolean;
   };
