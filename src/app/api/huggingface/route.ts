@@ -21,6 +21,27 @@ export async function GET() {
 
     // Test API accessibility with a simple request
     console.log('HF API Check - Testing API connection...');
+    console.log('HF API Check - Token starts with:', token.substring(0, 10));
+    console.log('HF API Check - Token format valid:', token.startsWith('hf_'));
+    console.log('HF API Check - Full URL:', 'https://api-inference.huggingface.co/models/gpt2');
+    
+    // First try a simple GET request to check if the model exists
+    const modelCheckResponse = await fetch('https://huggingface.co/api/models/gpt2', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    
+    console.log('HF API Check - Model check status:', modelCheckResponse.status);
+    
+    if (modelCheckResponse.ok) {
+      const modelInfo = await modelCheckResponse.text();
+      console.log('HF API Check - Model info:', modelInfo.substring(0, 200));
+    }
+    
+    // Try a simple text generation request
     const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
       headers: {
@@ -28,18 +49,15 @@ export async function GET() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        inputs: "test",
-        parameters: {
-          max_new_tokens: 10,
-          temperature: 0.1
-        }
+        inputs: "Hello world"
       }),
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(10000)
     });
     
     const responseText = await response.text();
     console.log('HF API Check - Response status:', response.status);
-    console.log('HF API Check - Response text:', responseText.substring(0, 200));
+    console.log('HF API Check - Response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('HF API Check - Response text:', responseText.substring(0, 500));
     
     // HF API returns 200 for success, or specific error codes
     const available = response.status === 200 || response.status === 422; // 422 is validation error but API is accessible
@@ -51,7 +69,10 @@ export async function GET() {
       debug: {
         tokenPresent: true,
         tokenLength: token.length,
-        responsePreview: responseText.substring(0, 200)
+        tokenFormat: token.startsWith('hf_'),
+        responsePreview: responseText.substring(0, 200),
+        modelCheckStatus: modelCheckResponse.status,
+        fullUrl: 'https://api-inference.huggingface.co/models/gpt2'
       }
     });
     
