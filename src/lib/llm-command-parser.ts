@@ -5,7 +5,6 @@ import {
   LLMCommandParser,
   LLMCommandParserResult,
   LLMParseResult,
-  LLM_OUTPUT_SCHEMA,
   FEW_SHOT_EXAMPLES
 } from './llm-types';
 import { getHuggingFaceToken, getDefaultHuggingFaceModel, getHuggingFaceBaseUrl } from './env';

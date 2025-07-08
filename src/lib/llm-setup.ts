@@ -1,7 +1,7 @@
 // LLM Setup and Model Management Utilities
 
-import { getAvailableModels, isLLMParsingAvailable } from './llm-command-parser';
-import { getHuggingFaceToken, isHuggingFaceAvailable } from './env';
+import { isLLMParsingAvailable } from './llm-command-parser';
+import { isHuggingFaceAvailable } from './env';
 
 export interface ModelInfo {
   name: string;
@@ -104,7 +104,7 @@ export class LLMSetupManager {
     return status;
   }
 
-  findBestAvailableModel(availableModels: string[]): string | null {
+  findBestAvailableModel(): string | null {
     // For Hugging Face, we always have access to the models via API
     // Return the first recommended model
     const recommendedModel = RECOMMENDED_MODELS.find(m => m.recommended);
