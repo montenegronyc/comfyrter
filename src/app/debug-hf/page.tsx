@@ -36,17 +36,42 @@ export default function DebugHFPage() {
     }
   };
 
+  const testToken = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/test-token', {
+        method: 'GET',
+      });
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : 'Unknown error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Hugging Face API Debug</h1>
       
-      <button
-        onClick={testAPI}
-        disabled={loading}
-        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
-      >
-        {loading ? 'Testing...' : 'Test HF API'}
-      </button>
+      <div className="space-x-4">
+        <button
+          onClick={testAPI}
+          disabled={loading}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+        >
+          {loading ? 'Testing...' : 'Test HF API'}
+        </button>
+        
+        <button
+          onClick={testToken}
+          disabled={loading}
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+        >
+          {loading ? 'Testing...' : 'Test Token Only'}
+        </button>
+      </div>
 
       {result && (
         <div className="mt-6">

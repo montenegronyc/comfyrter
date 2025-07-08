@@ -25,7 +25,27 @@ export async function GET() {
     console.log('HF API Check - Token format valid:', token.startsWith('hf_'));
     console.log('HF API Check - Full URL:', 'https://api-inference.huggingface.co/models/gpt2');
     
-    // First try a simple GET request to check if the model exists
+    // First try to validate the token with the user info endpoint
+    const userInfoResponse = await fetch('https://huggingface.co/api/whoami', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    
+    console.log('HF API Check - User info status:', userInfoResponse.status);
+    
+    let userInfo = '';
+    if (userInfoResponse.ok) {
+      userInfo = await userInfoResponse.text();
+      console.log('HF API Check - User info:', userInfo);
+    } else {
+      const errorText = await userInfoResponse.text();
+      console.log('HF API Check - User info error:', errorText);
+    }
+    
+    // Then try a simple GET request to check if the model exists
     const modelCheckResponse = await fetch('https://huggingface.co/api/models/gpt2', {
       method: 'GET',
       headers: {
@@ -100,6 +120,8 @@ export async function GET() {
         tokenLength: token.length,
         tokenFormat: token.startsWith('hf_'),
         responsePreview: responseText.substring(0, 200),
+        userInfoStatus: userInfoResponse.status,
+        userInfo: userInfo.substring(0, 100),
         modelCheckStatus: modelCheckResponse.status,
         workingEndpoint: workingEndpoint || 'none',
         testedEndpoints: endpoints
