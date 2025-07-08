@@ -124,7 +124,7 @@ export class PerformanceOptimizer {
       
       // Detect memory if available
       if ('deviceMemory' in navigator) {
-        specs.totalRAM = (navigator as any).deviceMemory
+        specs.totalRAM = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
       }
       
       // Detect CPU cores
@@ -261,7 +261,7 @@ export class PerformanceOptimizer {
       '## Alternative Profiles'
     ]
     
-    Object.entries(OPTIMIZATION_PROFILES).forEach(([key, profile]) => {
+    Object.entries(OPTIMIZATION_PROFILES).forEach(([_key, profile]) => {
       if (profile.name !== recommendedProfile.name) {
         reportLines.push(`### ${profile.name}`)
         reportLines.push(`- Model: ${profile.recommendedModel}`)

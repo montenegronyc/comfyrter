@@ -3,7 +3,7 @@
 import { EnhancedWorkflowParser, EnhancedWorkflowStep, ParsedWorkflowContext } from './enhanced-workflow-parser';
 import { createLLMCommandParser, isLLMParsingAvailable } from './llm-command-parser';
 import { LLMCommandParser, LLMCommandParserResult, LLMConfig } from './llm-types';
-import { ParsedWorkflowStep } from './types';
+// import { ParsedWorkflowStep } from './types'; // Removed - not used
 
 export interface HybridParseResult {
   steps: EnhancedWorkflowStep[];
@@ -225,11 +225,11 @@ export class HybridWorkflowParser {
     return 'complex';
   }
 
-  private extractKeywordsFromStep(llmStep: any): string[] {
+  private extractKeywordsFromStep(llmStep: LLMCommandParserResult['commands'][0]): string[] {
     const keywords: string[] = [];
     
     // Extract keywords from parameters
-    Object.entries(llmStep.parameters).forEach(([key, value]) => {
+    Object.entries(llmStep.parameters).forEach(([_key, value]) => {
       if (typeof value === 'string') {
         keywords.push(value);
       }

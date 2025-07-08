@@ -99,7 +99,7 @@ export class LLMSetupManager {
 
       // Check system memory (if possible)
       if (typeof navigator !== 'undefined' && 'deviceMemory' in navigator) {
-        status.memoryAvailable = (navigator as any).deviceMemory * 1024; // Convert GB to MB
+        status.memoryAvailable = (navigator as Navigator & { deviceMemory?: number }).deviceMemory! * 1024; // Convert GB to MB
       }
 
     } catch (error) {

@@ -229,7 +229,7 @@ Respond with valid JSON only, following the schema exactly.`;
     }
   }
 
-  private validateAgainstSchema(data: unknown, schema: typeof LLM_OUTPUT_SCHEMA): boolean {
+  private validateAgainstSchema(data: unknown, _schema: typeof LLM_OUTPUT_SCHEMA): boolean {
     // Basic schema validation - in production, use a proper JSON schema validator
     try {
       const obj = data as LLMParseResult;

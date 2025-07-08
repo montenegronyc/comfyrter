@@ -1,7 +1,7 @@
 // Comprehensive Test Scenarios for LLM Command Parsing
 
 import { HybridWorkflowParser } from './hybrid-workflow-parser'
-import { OllamaCommandParser } from './llm-command-parser'
+// import { OllamaCommandParser } from './llm-command-parser' // Removed - not used
 
 export interface TestScenario {
   id: string
@@ -353,7 +353,7 @@ export class LLMParserTester {
     return this.runAllTests(testsToRun.map(t => t.category))
   }
 
-  private evaluateResult(result: any, scenario: TestScenario): boolean {
+  private evaluateResult(result: { steps: Array<{ action: string, parameters?: Record<string, unknown> }>, confidence: number, context?: { detectedStyle?: string } }, scenario: TestScenario): boolean {
     const expected = scenario.expectedOutputs
     
     // Check primary action
@@ -392,7 +392,7 @@ export class LLMParserTester {
     return true
   }
 
-  private extractParameters(result: any): string[] {
+  private extractParameters(result: { steps: Array<{ action: string, parameters: Record<string, unknown> }> }): string[] {
     const parameters: string[] = []
     
     // Extract from context keywords
@@ -401,8 +401,8 @@ export class LLMParserTester {
     }
     
     // Extract from step parameters
-    result.steps.forEach((step: any) => {
-      Object.values(step.parameters).forEach((value: any) => {
+    result.steps.forEach((step: { parameters: Record<string, unknown> }) => {
+      Object.values(step.parameters).forEach((value: unknown) => {
         if (typeof value === 'string') {
           parameters.push(value)
         }

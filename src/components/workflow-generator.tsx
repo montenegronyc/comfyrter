@@ -31,9 +31,9 @@ export function WorkflowGenerator() {
   const [isLlmExpanded, setIsLlmExpanded] = useState(false)
 
   const constructor = new WorkflowConstructor()
-  const enhancedParser = new EnhancedWorkflowParser()
+  // const enhancedParser = new EnhancedWorkflowParser() // Removed - using hybrid parser instead
   const hybridParser = new HybridWorkflowParser({ debug: true })
-  const setupManager = new LLMSetupManager()
+  // const setupManager = new LLMSetupManager() // Removed - not used in this component
 
   const generateWorkflow = async () => {
     if (!description.trim()) {

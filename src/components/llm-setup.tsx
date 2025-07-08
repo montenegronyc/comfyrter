@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LLMSetupManager, SetupStatus, RECOMMENDED_MODELS } from '@/lib/llm-setup'
-import { isLLMParsingAvailable, getAvailableModels } from '@/lib/llm-command-parser'
+// Removed unused imports: isLLMParsingAvailable, getAvailableModels
 import { 
   Brain, 
   Download, 
@@ -30,7 +30,7 @@ export function LLMSetup() {
 
   useEffect(() => {
     checkSetup()
-  }, [])
+  }, [checkSetup])
 
   const checkSetup = async () => {
     setIsLoading(true)
@@ -281,7 +281,7 @@ export function LLMSetup() {
               </div>
               <div className="ml-8 text-sm text-muted-foreground">
                 Once setup is complete, refresh this page and try generating a workflow. 
-                You'll see the 🤖 LLM indicator when enhanced parsing is active.
+                You&apos;ll see the 🤖 LLM indicator when enhanced parsing is active.
               </div>
             </div>
           </CardContent>
