@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LLMSetupManager, SetupStatus, RECOMMENDED_MODELS } from '@/lib/llm-setup'
@@ -26,11 +26,7 @@ export function LLMSetup() {
   const [systemReport, setSystemReport] = useState<string>('')
   const [showReport, setShowReport] = useState(false)
 
-  const setupManager = new LLMSetupManager()
-
-  useEffect(() => {
-    checkSetup()
-  }, [checkSetup])
+  const setupManager = useMemo(() => new LLMSetupManager(), [])
 
   const checkSetup = useCallback(async () => {
     setIsLoading(true)
@@ -46,6 +42,10 @@ export function LLMSetup() {
       setIsLoading(false)
     }
   }, [setupManager])
+
+  useEffect(() => {
+    checkSetup()
+  }, [checkSetup])
 
   const refreshStatus = async () => {
     setIsRefreshing(true)
