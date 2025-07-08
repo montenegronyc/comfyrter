@@ -2,8 +2,23 @@
 
 import { useState } from 'react';
 
+interface DebugResult {
+  available?: boolean;
+  error?: string;
+  status?: number;
+  statusText?: string;
+  debug?: {
+    tokenPresent?: boolean;
+    tokenLength?: number;
+    responsePreview?: string;
+    envVars?: string[];
+    errorType?: string;
+    errorMessage?: string;
+  };
+}
+
 export default function DebugHFPage() {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<DebugResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const testAPI = async () => {
