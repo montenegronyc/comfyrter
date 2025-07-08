@@ -101,7 +101,7 @@ export class HybridWorkflowParser {
         confidence: enhancedResult.context.confidence,
         processingTime: Date.now() - startTime,
         suggestions: [
-          'LLM parsing was not available. Consider installing Ollama for better parsing.',
+          'LLM parsing was not available. Configure Hugging Face API token for better parsing.',
           ...this.generateFallbackSuggestions(description)
         ],
         errors: llmResult?.errors,

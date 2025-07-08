@@ -187,7 +187,7 @@ export function WorkflowGenerator() {
               ) : (
                 <>
                   <AlertCircle className="h-3 w-3" />
-                  <span>Using standard parsing (install Ollama for enhanced features)</span>
+                  <span>Using standard parsing (configure Hugging Face API for enhanced features)</span>
                 </>
               )}
             </div>
@@ -209,7 +209,7 @@ export function WorkflowGenerator() {
                 <CardDescription>
                   {hybridResult.llmUsed 
                     ? `Advanced AI parsing with ${Math.round(hybridResult.confidence * 100)}% confidence` 
-                    : 'Pattern-based analysis (install Ollama for LLM parsing)'}
+                    : 'Pattern-based analysis (configure Hugging Face API for LLM parsing)'}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">

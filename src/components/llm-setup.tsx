@@ -122,35 +122,32 @@ export function LLMSetup() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Ollama Status */}
+            {/* Hugging Face API Status */}
             <div className="flex items-center gap-3 p-3 border rounded-md">
-              {setupStatus.ollamaInstalled ? (
+              {setupStatus.huggingFaceAvailable ? (
                 <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
                 <XCircle className="h-5 w-5 text-red-500" />
               )}
               <div className="flex-1">
-                <div className="font-medium">Ollama Service</div>
+                <div className="font-medium">Hugging Face API</div>
                 <div className="text-sm text-muted-foreground">
-                  {setupStatus.ollamaInstalled ? 'Running' : 'Not available'}
+                  {setupStatus.huggingFaceAvailable ? 'Available' : 'Not accessible'}
                 </div>
               </div>
             </div>
 
-            {/* Model Status */}
+            {/* API Token Status */}
             <div className="flex items-center gap-3 p-3 border rounded-md">
-              {setupStatus.modelAvailable ? (
+              {setupStatus.apiTokenConfigured ? (
                 <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
                 <XCircle className="h-5 w-5 text-red-500" />
               )}
               <div className="flex-1">
-                <div className="font-medium">Recommended Model</div>
+                <div className="font-medium">API Token</div>
                 <div className="text-sm text-muted-foreground">
-                  {setupStatus.modelAvailable 
-                    ? `${setupStatus.recommendedModel}` 
-                    : 'Not installed'
-                  }
+                  {setupStatus.apiTokenConfigured ? 'Configured' : 'Not configured'}
                 </div>
               </div>
             </div>
@@ -158,12 +155,12 @@ export function LLMSetup() {
 
           {/* Overall Status */}
           <div className={`mt-4 p-3 rounded-md border-l-4 ${
-            setupStatus.ollamaInstalled && setupStatus.modelAvailable
+            setupStatus.huggingFaceAvailable && setupStatus.modelAvailable
               ? 'bg-green-50 border-green-400 dark:bg-green-950'
               : 'bg-amber-50 border-amber-400 dark:bg-amber-950'
           }`}>
             <div className="flex items-center gap-2">
-              {setupStatus.ollamaInstalled && setupStatus.modelAvailable ? (
+              {setupStatus.huggingFaceAvailable && setupStatus.modelAvailable ? (
                 <>
                   <Zap className="h-4 w-4 text-green-600" />
                   <span className="font-medium text-green-800 dark:text-green-200">
@@ -184,7 +181,7 @@ export function LLMSetup() {
       </Card>
 
       {/* Setup Instructions */}
-      {(!setupStatus.ollamaInstalled || !setupStatus.modelAvailable) && (
+      {(!setupStatus.huggingFaceAvailable || !setupStatus.apiTokenConfigured) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -196,45 +193,59 @@ export function LLMSetup() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!setupStatus.ollamaInstalled && (
+            {!setupStatus.apiTokenConfigured && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
                     1
                   </div>
-                  <span className="font-medium">Install Ollama</span>
+                  <span className="font-medium">Get Hugging Face API Token</span>
                 </div>
                 <div className="ml-8 space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    Download and install Ollama from the official website
+                    Create a free Hugging Face account and get an API token
                   </p>
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => window.open('https://ollama.ai', '_blank', 'noopener,noreferrer')}
+                    onClick={() => window.open('https://huggingface.co/settings/tokens', '_blank', 'noopener,noreferrer')}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    Download Ollama
+                    Get API Token
                   </Button>
                 </div>
               </div>
             )}
 
-            {setupStatus.ollamaInstalled && !setupStatus.modelAvailable && (
+            {setupStatus.apiTokenConfigured && !setupStatus.huggingFaceAvailable && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
                     2
                   </div>
-                  <span className="font-medium">Install a Model</span>
+                  <span className="font-medium">Configure Environment</span>
                 </div>
                 <div className="ml-8 space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Install a recommended model for optimal parsing performance
+                    Add your Hugging Face API token to your environment variables
                   </p>
                   
-                  {/* Model Selection */}
+                  <div className="bg-muted p-3 rounded-md">
+                    <div className="font-medium text-sm mb-2">Environment Setup:</div>
+                    <div className="space-y-2 font-mono text-xs">
+                      <div># For local development</div>
+                      <div className="bg-background p-2 rounded border">
+                        export HUGGINGFACE_API_TOKEN=your_token_here
+                      </div>
+                      <div># For production deployment</div>
+                      <div className="bg-background p-2 rounded border">
+                        HUGGINGFACE_API_TOKEN=your_token_here
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
+                    <div className="font-medium text-sm">Available Models:</div>
                     {RECOMMENDED_MODELS.filter(m => m.recommended).map((model) => (
                       <div key={model.name} className="flex items-center justify-between p-3 border rounded-md">
                         <div className="flex-1">
@@ -246,29 +257,11 @@ export function LLMSetup() {
                             {model.memoryRequirement}
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => copyToClipboard(`ollama pull ${model.name}`)}
-                        >
-                          Copy Command
-                        </Button>
+                        <div className="text-xs text-green-600">
+                          ✓ Available via API
+                        </div>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="bg-muted p-3 rounded-md">
-                    <div className="font-medium text-sm mb-2">Installation Commands:</div>
-                    <div className="space-y-1 font-mono text-xs">
-                      <div># For best performance (8GB+ RAM recommended)</div>
-                      <div className="bg-background p-2 rounded border">
-                        ollama pull qwen2.5-coder:7b
-                      </div>
-                      <div># For lower memory systems (4GB+ RAM)</div>
-                      <div className="bg-background p-2 rounded border">
-                        ollama pull qwen2.5-coder:3b
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -282,7 +275,7 @@ export function LLMSetup() {
                 <span className="font-medium">Start Using Enhanced Parsing</span>
               </div>
               <div className="ml-8 text-sm text-muted-foreground">
-                Once setup is complete, refresh this page and try generating a workflow. 
+                Once your API token is configured, refresh this page and try generating a workflow. 
                 You&apos;ll see the 🤖 LLM indicator when enhanced parsing is active.
               </div>
             </div>
@@ -402,9 +395,9 @@ export function LLMSetup() {
               </div>
             </div>
             <div className="space-y-2">
-              <div className="font-medium text-sm">🔒 Privacy-First</div>
+              <div className="font-medium text-sm">🔒 Free & Secure</div>
               <div className="text-xs text-muted-foreground">
-                Runs completely local - your data never leaves your machine
+                20,000 free requests per month through Hugging Face API
               </div>
             </div>
           </div>

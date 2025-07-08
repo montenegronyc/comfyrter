@@ -64,7 +64,7 @@ export class HuggingFaceCommandParser implements LLMCommandParser {
         confidence,
         processingTime,
         fallbackUsed: confidence < this.config.confidenceThreshold,
-        rawLLMOutput: response.message.content
+        rawLLMOutput: response.content
       };
       
     } catch (error) {
