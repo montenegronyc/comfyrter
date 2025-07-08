@@ -25,7 +25,7 @@ export class HuggingFaceCommandParser implements LLMCommandParser {
       this.config = { ...this.config, ...config };
     }
     
-    // Get API token from environment
+    // Get API token from environment (server-side only)
     this.apiToken = getHuggingFaceToken();
   }
 
@@ -82,29 +82,18 @@ export class HuggingFaceCommandParser implements LLMCommandParser {
 
   async isAvailable(): Promise<boolean> {
     try {
-      if (!this.apiToken) {
-        return false;
-      }
-      
-      // Test API accessibility with a simple request
-      const response = await fetch(`${this.config.baseUrl}/${this.config.model}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          inputs: "test",
-          parameters: {
-            max_new_tokens: 10,
-            temperature: 0.1
-          }
-        }),
+      // Use the API route to check availability (works both client and server side)
+      const response = await fetch('/api/huggingface', {
+        method: 'GET',
         signal: AbortSignal.timeout(5000)
       });
       
-      // HF API returns 200 for success, or specific error codes
-      return response.status === 200 || response.status === 422; // 422 is validation error but API is accessible
+      if (!response.ok) {
+        return false;
+      }
+      
+      const data = await response.json();
+      return data.available === true;
     } catch {
       return false;
     }
@@ -173,6 +162,7 @@ Respond with valid JSON only, following the schema exactly.`;
 
   private async makeHuggingFaceRequest(prompt: string): Promise<{ content: string }> {
     const requestBody = {
+      model: this.config.model,
       inputs: prompt,
       parameters: {
         max_new_tokens: 1000,
@@ -187,10 +177,9 @@ Respond with valid JSON only, following the schema exactly.`;
     
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       try {
-        const response = await fetch(`${this.config.baseUrl}/${this.config.model}`, {
+        const response = await fetch('/api/huggingface', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
@@ -198,11 +187,16 @@ Respond with valid JSON only, following the schema exactly.`;
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Hugging Face request failed: ${response.status} ${response.statusText} - ${errorText}`);
+          const errorData = await response.json();
+          throw new Error(`Hugging Face request failed: ${response.status} ${response.statusText} - ${errorData.error || 'Unknown error'}`);
         }
 
         const data = await response.json();
+        
+        // Handle error responses from the API route
+        if (data.error) {
+          throw new Error(data.error);
+        }
         
         // HF API returns different formats depending on the model
         let content = '';
