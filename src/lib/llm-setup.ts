@@ -47,21 +47,13 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
     recommended: true,
     parameters: '7 billion',
     memoryRequirement: 'Hosted on Hugging Face'
-  },
-  {
-    name: 'llama3.2:3b',
-    size: '2.0GB',
-    description: 'Llama 3.2 3B - Alternative lightweight model',
-    recommended: false,
-    parameters: '3 billion',
-    memoryRequirement: '4GB RAM minimum'
   }
 ];
 
 export class LLMSetupManager {
   private baseUrl: string;
 
-  constructor(baseUrl = 'http://localhost:11434') {
+  constructor(baseUrl = 'https://api-inference.huggingface.co/models') {
     this.baseUrl = baseUrl;
   }
 
@@ -178,7 +170,9 @@ export class LLMSetupManager {
       '',
       '## 3. Recommended Models',
       'The following models are available via API:',
-      ...RECOMMENDED_MODELS.map(model => `- ${model.name}: ${model.description}`),
+      '- microsoft/DialoGPT-medium: Microsoft DialoGPT Medium - Fast and reliable for parsing tasks',
+      '- meta-llama/Llama-2-7b-chat-hf: Llama 2 7B Chat - High quality instruction following',
+      '- mistralai/Mistral-7B-Instruct-v0.1: Mistral 7B Instruct - Good balance of speed and accuracy',
       '',
       '## 4. Verify Setup',
       'The comfyrter app will automatically detect when LLM parsing is available.',
@@ -226,9 +220,7 @@ export class LLMSetupManager {
     report.push('- No local installation required');
     report.push('- Free tier: 20,000 requests/month');
     report.push('- Multiple model options available');
-      report.push(`- Available memory: ${Math.round(status.memoryAvailable / 1024)}GB`);
-      report.push('');
-    }
+    report.push('');
 
     if (status.errors.length > 0) {
       report.push('## Issues Found');
