@@ -41,18 +41,47 @@ export async function GET() {
       console.log('HF API Check - Model info:', modelInfo.substring(0, 200));
     }
     
-    // Try a simple text generation request
-    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        inputs: "Hello world"
-      }),
-      signal: AbortSignal.timeout(10000)
-    });
+    // Try multiple endpoint formats to find the correct one
+    const endpoints = [
+      'https://api-inference.huggingface.co/models/gpt2',
+      'https://api-inference.huggingface.co/models/openai-community/gpt2',
+      'https://api-inference.huggingface.co/models/distilgpt2'
+    ];
+    
+    let response;
+    let workingEndpoint = '';
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log('HF API Check - Trying endpoint:', endpoint);
+        
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            inputs: "Hello world",
+            options: { wait_for_model: true }
+          }),
+          signal: AbortSignal.timeout(10000)
+        });
+        
+        console.log('HF API Check - Endpoint response status:', response.status);
+        
+        if (response.status !== 404) {
+          workingEndpoint = endpoint;
+          break;
+        }
+      } catch (error) {
+        console.log('HF API Check - Endpoint error:', error);
+      }
+    }
+    
+    if (!response) {
+      throw new Error('All endpoints failed');
+    }
     
     const responseText = await response.text();
     console.log('HF API Check - Response status:', response.status);
@@ -72,7 +101,8 @@ export async function GET() {
         tokenFormat: token.startsWith('hf_'),
         responsePreview: responseText.substring(0, 200),
         modelCheckStatus: modelCheckResponse.status,
-        fullUrl: 'https://api-inference.huggingface.co/models/gpt2'
+        workingEndpoint: workingEndpoint || 'none',
+        testedEndpoints: endpoints
       }
     });
     
