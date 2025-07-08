@@ -1,6 +1,7 @@
 import { WorkflowGenerator } from '@/components/workflow-generator'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Wand2, Github } from 'lucide-react'
+import Image from 'next/image'
 
 export default function Home() {
   return (
@@ -34,17 +35,33 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Hero Section with Splash Image */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background"></div>
+        <Image 
+          src="/comfyrter_image_v01.png" 
+          alt="Comfyrter Hero" 
+          width={1920}
+          height={600}
+          priority
+          className="w-full h-[400px] sm:h-[500px] lg:h-[600px] object-cover"
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center text-white">
+            <h1 className="mb-4 text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight drop-shadow-2xl">
+              Comfyrter
+            </h1>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-medium drop-shadow-lg">
+              Generate ComfyUI Workflows with Natural Language
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="container mx-auto max-w-6xl px-4 py-8">
-        {/* Hero Section */}
+        {/* Description Section */}
         <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            Generate{' '}
-            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              ComfyUI Workflows
-            </span>{' '}
-            with Natural Language
-          </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
             Transform your creative ideas into ComfyUI workflow JSON files. 
             Simply describe what features and attributes you want, and we&apos;ll generate the complete workflow for you.
