@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { WorkflowConstructor } from '@/lib/workflow-constructor'
 import { downloadJSON, copyToClipboard, generateTimestamp } from '@/lib/utils'
 import { ComfyUIWorkflow, WorkflowExplanation } from '@/lib/types'
-import { EnhancedWorkflowParser, ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
+import { ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
 import { HybridWorkflowParser, HybridParseResult } from '@/lib/hybrid-workflow-parser'
-import { LLMSetupManager, quickSetupCheck } from '@/lib/llm-setup'
+import { quickSetupCheck } from '@/lib/llm-setup'
 import { ParameterOptimizer, QualityMetrics } from '@/lib/parameter-optimizer'
 import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info, Check, Brain, Zap, AlertCircle } from 'lucide-react'
 

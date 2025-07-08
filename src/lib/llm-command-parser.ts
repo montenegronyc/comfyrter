@@ -217,7 +217,7 @@ Respond with valid JSON only, following the schema exactly.`;
       const parsed = JSON.parse(jsonString);
       
       // Validate against schema
-      if (!this.validateAgainstSchema(parsed, LLM_OUTPUT_SCHEMA)) {
+      if (!this.validateAgainstSchema(parsed)) {
         throw new Error('Response does not match required schema');
       }
       
@@ -229,7 +229,7 @@ Respond with valid JSON only, following the schema exactly.`;
     }
   }
 
-  private validateAgainstSchema(data: unknown, _schema: typeof LLM_OUTPUT_SCHEMA): boolean {
+  private validateAgainstSchema(data: unknown): boolean {
     // Basic schema validation - in production, use a proper JSON schema validator
     try {
       const obj = data as LLMParseResult;

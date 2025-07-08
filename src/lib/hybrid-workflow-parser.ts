@@ -229,7 +229,7 @@ export class HybridWorkflowParser {
     const keywords: string[] = [];
     
     // Extract keywords from parameters
-    Object.entries(llmStep.parameters).forEach(([_key, value]) => {
+    Object.entries(llmStep.parameters).forEach(([, value]) => {
       if (typeof value === 'string') {
         keywords.push(value);
       }
@@ -241,7 +241,7 @@ export class HybridWorkflowParser {
     return keywords.filter(k => k && k.length > 2);
   }
 
-  private generateOptimizations(llmStep: any, context: ParsedWorkflowContext): Record<string, unknown> {
+  private generateOptimizations(llmStep: LLMCommandParserResult['commands'][0], context: ParsedWorkflowContext): Record<string, unknown> {
     const optimizations: Record<string, unknown> = {};
     
     // Add optimization suggestions based on step type

@@ -261,7 +261,7 @@ export class PerformanceOptimizer {
       '## Alternative Profiles'
     ]
     
-    Object.entries(OPTIMIZATION_PROFILES).forEach(([_key, profile]) => {
+    Object.entries(OPTIMIZATION_PROFILES).forEach(([, profile]) => {
       if (profile.name !== recommendedProfile.name) {
         reportLines.push(`### ${profile.name}`)
         reportLines.push(`- Model: ${profile.recommendedModel}`)
