@@ -270,7 +270,16 @@ export function WorkflowGenerator() {
       {/* Download/Copy Actions - Right after prompt window */}
       {workflow && (
         <Card>
-          <CardContent className="pt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5" />
+              Workflow Complete
+            </CardTitle>
+            <CardDescription>
+              Your ComfyUI workflow has been successfully generated
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="flex gap-2">
               <Button onClick={handleDownload} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
