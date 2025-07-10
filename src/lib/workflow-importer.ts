@@ -4,9 +4,9 @@ export interface ComfyUIWorkflow {
   version: string;
   nodes: ComfyUINode[];
   links: number[][];
-  groups: any[];
-  config: any;
-  extra: any;
+  groups: unknown[];
+  config: Record<string, unknown>;
+  extra: Record<string, unknown>;
 }
 
 export interface ComfyUINode {
@@ -14,13 +14,13 @@ export interface ComfyUINode {
   type: string;
   pos: [number, number];
   size: [number, number];
-  flags: any;
+  flags: Record<string, unknown>;
   order: number;
   mode: number;
-  inputs?: any[];
-  outputs?: any[];
-  properties?: any;
-  widgets_values?: any[];
+  inputs?: unknown[];
+  outputs?: unknown[];
+  properties?: Record<string, unknown>;
+  widgets_values?: unknown[];
   color?: string;
   bgcolor?: string;
   title?: string;

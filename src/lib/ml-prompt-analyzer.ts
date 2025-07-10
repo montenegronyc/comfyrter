@@ -44,10 +44,10 @@ export interface PromptAnalysis {
 }
 
 export class MLPromptAnalyzer {
-  private nerPipeline: any = null;
-  private classificationPipeline: any = null;
-  private sentimentPipeline: any = null;
-  private embeddingPipeline: any = null;
+  private nerPipeline: unknown = null;
+  private classificationPipeline: unknown = null;
+  private sentimentPipeline: unknown = null;
+  private embeddingPipeline: unknown = null;
   private initialized = false;
 
   async initialize() {
@@ -118,7 +118,7 @@ export class MLPromptAnalyzer {
 
     try {
       // Use NER to extract named entities
-      const nerResults = await this.nerPipeline(prompt);
+      const nerResults = await (this.nerPipeline as (text: string) => Promise<Array<{ word: string; entity: string }>>)(prompt);
       
       // Process NER results and categorize them
       for (const result of nerResults) {
@@ -162,7 +162,7 @@ export class MLPromptAnalyzer {
     return null;
   }
 
-  private extractArtisticTerms(prompt: string, entities: any) {
+  private extractArtisticTerms(prompt: string, entities: PromptAnalysis['entities']) {
     const lowerPrompt = prompt.toLowerCase();
     
     // Art styles
@@ -198,10 +198,10 @@ export class MLPromptAnalyzer {
       const qualityLabels = ['standard', 'high quality', 'professional'];
 
       const [styleResult, imageTypeResult, artMovementResult, qualityResult] = await Promise.all([
-        this.classificationPipeline(prompt, styleLabels),
-        this.classificationPipeline(prompt, imageTypeLabels),
-        this.classificationPipeline(prompt, artMovementLabels),
-        this.classificationPipeline(prompt, qualityLabels)
+        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, styleLabels),
+        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, imageTypeLabels),
+        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, artMovementLabels),
+        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, qualityLabels)
       ]);
 
       const complexity = this.determineComplexity(prompt);
@@ -238,7 +238,7 @@ export class MLPromptAnalyzer {
 
   private async analyzeSentiment(prompt: string) {
     try {
-      const sentimentResult = await this.sentimentPipeline(prompt);
+      const sentimentResult = await (this.sentimentPipeline as (text: string) => Promise<Array<{ label: string; score: number }>>)(prompt);
       
       // Map sentiment to mood
       const moodMapping = {
@@ -323,7 +323,7 @@ export class MLPromptAnalyzer {
     return '1024x1024';
   }
 
-  private estimateWorkflowComplexity(prompt: string, entities: any, classifications: any) {
+  private estimateWorkflowComplexity(prompt: string, entities: PromptAnalysis['entities'], classifications: PromptAnalysis['classifications']) {
     const baseNodes = 5; // Basic generation workflow
     let additionalNodes = 0;
 
@@ -353,7 +353,7 @@ export class MLPromptAnalyzer {
     }
 
     try {
-      const result = await this.embeddingPipeline(prompt);
+      const result = await (this.embeddingPipeline as (text: string) => Promise<{ data: Float32Array }>)(prompt);
       return Array.from(result.data);
     } catch (error) {
       console.error('Error getting prompt embedding:', error);

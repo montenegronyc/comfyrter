@@ -1,4 +1,4 @@
-import { mlPromptAnalyzer, type PromptAnalysis } from './ml-prompt-analyzer';
+import type { PromptAnalysis } from './ml-prompt-analyzer';
 import { workflowImporter, type WorkflowAnalysis } from './workflow-importer';
 
 export interface WorkflowRecommendation {
@@ -50,8 +50,8 @@ export interface SmartRecommendation {
 
 export class RecommendationEngine {
   private initialized = false;
-  private modelPerformanceData: Map<string, any> = new Map();
-  private userPreferences: any = {};
+  private modelPerformanceData: Map<string, unknown> = new Map();
+  private userPreferences: Record<string, unknown> = {};
 
   async initialize() {
     if (this.initialized) return;
@@ -100,8 +100,7 @@ export class RecommendationEngine {
   }
 
   private async recommendModels(context: RecommendationContext) {
-    const { analysis, preferences } = context;
-    const models = [];
+    const { analysis } = context;
 
     // Score models based on analysis
     const modelScores = new Map<string, { score: number; reasons: string[] }>();
@@ -148,7 +147,7 @@ export class RecommendationEngine {
       }
 
       // Adjust based on user preferences
-      if (preferences?.speed === 'fast' && model.name.includes('xl')) {
+      if (context.preferences?.speed === 'fast' && model.name.includes('xl')) {
         score -= 0.1;
         reasons.push('May be slower due to XL model');
       }
@@ -175,8 +174,7 @@ export class RecommendationEngine {
   }
 
   private async recommendLoras(context: RecommendationContext) {
-    const { analysis, preferences } = context;
-    const loras = [];
+    const { analysis } = context;
 
     // Base LoRA recommendations
     const loraRecommendations = [];
@@ -234,7 +232,7 @@ export class RecommendationEngine {
     const { analysis, preferences, constraints } = context;
     
     // Base parameters
-    let parameters = {
+    const parameters = {
       sampler: 'euler',
       steps: 20,
       cfg: 7,
@@ -308,7 +306,7 @@ export class RecommendationEngine {
       .slice(0, 5);
   }
 
-  private calculateWorkflowScore(workflow: WorkflowAnalysis, analysis: PromptAnalysis, preferences?: any): number {
+  private calculateWorkflowScore(workflow: WorkflowAnalysis, analysis: PromptAnalysis, preferences?: Record<string, unknown>): number {
     let score = 0;
     
     // Style matching
@@ -394,7 +392,7 @@ export class RecommendationEngine {
     return 0.5;
   }
 
-  private calculatePreferenceMatch(workflow: WorkflowAnalysis, preferences: any): number {
+  private calculatePreferenceMatch(workflow: WorkflowAnalysis, preferences: Record<string, unknown>): number {
     let score = 0;
     
     if (preferences.complexity && workflow.complexity === preferences.complexity) {
@@ -405,8 +403,8 @@ export class RecommendationEngine {
       score += 0.3;
     }
     
-    if (preferences.avoid_techniques) {
-      const hasAvoidedTechniques = preferences.avoid_techniques.some((tech: string) => 
+    if (preferences.avoid_techniques && Array.isArray(preferences.avoid_techniques)) {
+      const hasAvoidedTechniques = (preferences.avoid_techniques as string[]).some((tech: string) => 
         workflow.techniques.includes(tech)
       );
       if (hasAvoidedTechniques) {
@@ -514,7 +512,7 @@ export class RecommendationEngine {
     return enhancements;
   }
 
-  saveUserPreferences(preferences: any) {
+  saveUserPreferences(preferences: Record<string, unknown>) {
     this.userPreferences = { ...this.userPreferences, ...preferences };
     try {
       localStorage.setItem('comfyui-user-preferences', JSON.stringify(this.userPreferences));
@@ -544,7 +542,7 @@ export class RecommendationEngine {
       // Update model performance data
       if (workflow.parameters.models.length > 0) {
         const modelName = workflow.parameters.models[0];
-        const currentData = this.modelPerformanceData.get(modelName) || { ratings: [], count: 0 };
+        const currentData = (this.modelPerformanceData.get(modelName) as { ratings: number[]; count: number }) || { ratings: [], count: 0 };
         
         currentData.ratings.push(userRating);
         currentData.count++;

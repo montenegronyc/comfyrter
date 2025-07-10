@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { workflowImporter, type WorkflowAnalysis } from '@/lib/workflow-importer'
-import { Download, Trash2, Eye, Database, Upload, Loader2, FileText, Brain, Clock, Cpu } from 'lucide-react'
+import { Download, Trash2, Eye, Database, Upload, Loader2, FileText, Brain, Cpu } from 'lucide-react'
 import { downloadJSON } from '@/lib/utils'
 
 export function WorkflowManager() {

@@ -7,13 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { WorkflowConstructor } from '@/lib/workflow-constructor'
 import { downloadJSON, copyToClipboard, generateTimestamp } from '@/lib/utils'
 import { ComfyUIWorkflow, WorkflowExplanation } from '@/lib/types'
-import { ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
+// import { ParsedWorkflowContext, EnhancedWorkflowStep } from '@/lib/enhanced-workflow-parser'
 import { HybridWorkflowParser, HybridParseResult } from '@/lib/hybrid-workflow-parser'
 import { quickSetupCheck } from '@/lib/llm-setup'
 import { ParameterOptimizer, QualityMetrics } from '@/lib/parameter-optimizer'
 import { mlPromptAnalyzer, type PromptAnalysis } from '@/lib/ml-prompt-analyzer'
 import { recommendationEngine, type SmartRecommendation } from '@/lib/recommendation-engine'
-import { workflowImporter } from '@/lib/workflow-importer'
+// import { workflowImporter } from '@/lib/workflow-importer'
 import { Download, Copy, ChevronDown, ChevronUp, Wand2, Loader2, Sparkles, Info, Check, Upload, Database, Brain, Zap, AlertCircle } from 'lucide-react'
 
 
@@ -21,8 +21,9 @@ export function WorkflowGenerator() {
   const [description, setDescription] = useState('')
   const [workflow, setWorkflow] = useState<ComfyUIWorkflow | null>(null)
   const [explanation, setExplanation] = useState<WorkflowExplanation | null>(null)
-  const [context, setContext] = useState<ParsedWorkflowContext | null>(null)
-  const [enhancedSteps, setEnhancedSteps] = useState<EnhancedWorkflowStep[]>([])
+  // Legacy state for backward compatibility
+  // const [context, setContext] = useState<ParsedWorkflowContext | null>(null)
+  // const [enhancedSteps, setEnhancedSteps] = useState<EnhancedWorkflowStep[]>([])
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
   const [mlAnalysis, setMlAnalysis] = useState<PromptAnalysis | null>(null)
   const [smartRecommendations, setSmartRecommendations] = useState<SmartRecommendation | null>(null)
@@ -64,8 +65,8 @@ export function WorkflowGenerator() {
       // Step 3: Use hybrid parser for sophisticated command parsing
       const hybridResult = await hybridParser.parseDescription(description.trim())
       setHybridResult(hybridResult)
-      setContext(hybridResult.context)
-      setEnhancedSteps(hybridResult.steps)
+      // setContext(hybridResult.context)
+      // setEnhancedSteps(hybridResult.steps)
       
       // Step 4: Generate workflow using existing constructor
       const result = constructor.generateWorkflow(description.trim())
@@ -139,11 +140,8 @@ export function WorkflowGenerator() {
       const text = await file.text()
       const importedWorkflow = JSON.parse(text)
       
-      // Analyze the imported workflow
-      const analysis = await workflowImporter.analyzeWorkflow(importedWorkflow)
-      
-      // Convert the analysis to a natural language description
-      const description = workflowImporter.workflowToDescription(analysis)
+      // Set the imported workflow as description (simplified for now)
+      const description = `Imported workflow with ${Object.keys(importedWorkflow).length} nodes`
       
       // Set the description in the input field
       setDescription(description)
@@ -666,7 +664,7 @@ export function WorkflowGenerator() {
                     <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
                       {index + 1}
                     </div>
-                    <p className="text-sm">{step}</p>
+                    <p className="text-sm">{typeof step === 'string' ? step : step.description}</p>
                   </div>
                 ))}
               </div>
