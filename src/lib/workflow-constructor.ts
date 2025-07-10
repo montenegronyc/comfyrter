@@ -5,8 +5,8 @@ import { EnhancedWorkflowParser } from './enhanced-workflow-parser';
 import { ModelSelector } from './model-knowledge-base';
 import { ParameterOptimizer } from './parameter-optimizer';
 import { ModelCompatibilityChecker, type BaseModelType } from './model-compatibility';
-import { CheckpointAnalyzer, type CheckpointInfo } from './checkpoint-analyzer';
-import { DynamicModelService, type DynamicModelSelection } from './dynamic-model-service';
+import { CheckpointAnalyzer } from './checkpoint-analyzer';
+import { DynamicModelService } from './dynamic-model-service';
 
 export class WorkflowConstructor {
   private parser: WorkflowParser;
@@ -284,7 +284,7 @@ export class WorkflowConstructor {
     nodes.push(modelLoadNode);
     
     // Add VAE if needed for this model type
-    const vaeNode = this.createCompatibleVAENode(baseModel, modelLoadNode.id as number);
+    const vaeNode = this.createCompatibleVAENode(baseModel);
     if (vaeNode) {
       nodes.push(vaeNode);
       explanationSteps.push({
@@ -719,7 +719,7 @@ export class WorkflowConstructor {
         hasUpscaling: false,
         hasEffects: false
       },
-      modelName as any,
+      undefined, // baseModel - ModelInfo type not available here
       selectedLoras as Parameters<typeof ParameterOptimizer.optimizeParameters>[2]
     );
     
@@ -1087,7 +1087,7 @@ export class WorkflowConstructor {
   }
 
   // Compatibility helper methods
-  private createCompatibleVAENode(baseModel: BaseModelType, modelNodeId: number): ComfyUINode | null {
+  private createCompatibleVAENode(baseModel: BaseModelType): ComfyUINode | null {
     const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
     
     // Only add VAE if it's different from the default
@@ -1100,7 +1100,7 @@ export class WorkflowConstructor {
     return null;
   }
 
-  private createCompatibleControlNetNode(baseModel: BaseModelType, controlType: string, imageInput: any): ComfyUINode | null {
+  private createCompatibleControlNetNode(baseModel: BaseModelType, controlType: string): ComfyUINode | null {
     const bestControlNet = ModelCompatibilityChecker.getBestControlNet(baseModel, controlType);
     
     if (!bestControlNet) {
@@ -1134,7 +1134,7 @@ export class WorkflowConstructor {
     return detailerNode;
   }
 
-  private getOptimalSamplingSettings(baseModel: BaseModelType, styleType: string) {
+  private getOptimalSamplingSettings(baseModel: BaseModelType, styleType: string): unknown {
     const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
     const checkpointInfo = CheckpointAnalyzer.analyzeCheckpoint('', { description: styleType });
     
@@ -1163,8 +1163,15 @@ export class WorkflowConstructor {
     return fallbackModels[style as keyof typeof fallbackModels] || fallbackModels.unknown;
   }
 
-  private validateWorkflowCompatibility(baseModel: BaseModelType, config: any): void {
-    const validation = ModelCompatibilityChecker.validateConfiguration(baseModel, config);
+  private validateWorkflowCompatibility(baseModel: BaseModelType, config: unknown): void {
+    const validation = ModelCompatibilityChecker.validateConfiguration(baseModel, config as {
+      controlNet?: string;
+      detailer?: string;
+      sampler?: string;
+      steps?: number;
+      cfg?: number;
+      resolution?: { width: number; height: number };
+    });
     
     this.compatibilityWarnings.push(...validation.warnings);
     this.compatibilitySuggestions.push(...validation.suggestions);

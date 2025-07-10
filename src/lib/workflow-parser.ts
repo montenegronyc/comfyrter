@@ -1,6 +1,5 @@
 import { ParsedWorkflowStep, GenerationParams, EffectParams, LoRAParams } from './types';
 import { DynamicModelService, type DynamicModelSelection } from './dynamic-model-service';
-import { type BaseModelType } from './model-compatibility';
 
 // Keywords for different operations
 const GENERATION_KEYWORDS = ['generate', 'create', 'make', 'produce', 'render', 'draw', 'paint'];

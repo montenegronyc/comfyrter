@@ -1,5 +1,5 @@
 import type { ProcessedModel } from '@/app/api/models/trending/route';
-import { MODEL_KNOWLEDGE_BASE, ModelSelector, type ModelInfo } from './model-knowledge-base';
+import { MODEL_KNOWLEDGE_BASE, ModelSelector } from './model-knowledge-base';
 import { CheckpointAnalyzer, type CheckpointInfo } from './checkpoint-analyzer';
 import { ModelCompatibilityChecker, type BaseModelType } from './model-compatibility';
 
