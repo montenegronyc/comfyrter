@@ -267,6 +267,59 @@ export function WorkflowGenerator() {
         </CardContent>
       </Card>
 
+      {/* Download/Copy Actions - Right after prompt window */}
+      {workflow && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex gap-2">
+              <Button onClick={handleDownload} className="flex-1">
+                <Download className="h-4 w-4 mr-2" />
+                Download JSON
+              </Button>
+              <Button onClick={handleCopy} variant="outline" className="flex-1">
+                {isCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy JSON
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Workflow Explanation - Right after buttons */}
+      {workflow && explanation && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Workflow Description
+            </CardTitle>
+            <CardDescription>
+              Step-by-step breakdown of your generated workflow
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {explanation.steps.map((step, index) => (
+                <div key={index} className="flex gap-3 p-3 bg-muted/50 rounded-md">
+                  <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm">{typeof step === 'string' ? step : step.description}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ML-Powered Analysis */}
       {mlAnalysis && (
@@ -646,35 +699,19 @@ export function WorkflowGenerator() {
         </Card>
       )}
 
-      {/* Results Section */}
-      {workflow && explanation && (
+      {/* JSON Preview Section */}
+      {workflow && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              Generated Workflow
+              <Download className="h-5 w-5" />
+              JSON Preview
             </CardTitle>
             <CardDescription>
-              Your ComfyUI workflow has been successfully generated
+              Raw ComfyUI workflow JSON data
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Workflow Explanation */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">Workflow Steps:</h3>
-              <div className="space-y-2">
-                {explanation.steps.map((step, index) => (
-                  <div key={index} className="flex gap-3 p-3 bg-muted/50 rounded-md">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                      {index + 1}
-                    </div>
-                    <p className="text-sm">{typeof step === 'string' ? step : step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* JSON Preview */}
+          <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">JSON Preview:</h3>
@@ -702,72 +739,9 @@ export function WorkflowGenerator() {
                 </pre>
               )}
             </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Button onClick={handleDownload} className="flex-1">
-                <Download className="h-4 w-4 mr-2" />
-                Download JSON
-              </Button>
-              <Button onClick={handleCopy} variant="outline" className="flex-1">
-                {isCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy JSON
-                  </>
-                )}
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Example Prompts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Example Prompts</CardTitle>
-          <CardDescription>
-            Try these example prompts to see what kinds of workflows you can generate
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <button
-              onClick={() => setDescription('Generate a photorealistic portrait of a woman with natural lighting, high quality')}
-              className="text-sm text-left p-3 bg-muted/50 hover:bg-muted rounded-md transition-colors w-full"
-            >
-              <div className="font-medium">Portrait Photography</div>
-              <div className="text-muted-foreground">Generate a photorealistic portrait of a woman with natural lighting, high quality</div>
-            </button>
-            <button
-              onClick={() => setDescription('Create an anime-style character in a cyberpunk city, neon lights, high detail, then upscale 2x')}
-              className="text-sm text-left p-3 bg-muted/50 hover:bg-muted rounded-md transition-colors w-full"
-            >
-              <div className="font-medium">Anime Character with Upscaling</div>
-              <div className="text-muted-foreground">Create an anime-style character in a cyberpunk city, neon lights, high detail, then upscale 2x</div>
-            </button>
-            <button
-              onClick={() => setDescription('Fantasy landscape with mountains and a castle, painted art style, add film grain and color grading')}
-              className="text-sm text-left p-3 bg-muted/50 hover:bg-muted rounded-md transition-colors w-full"
-            >
-              <div className="font-medium">Fantasy Landscape with Effects</div>
-              <div className="text-muted-foreground">Fantasy landscape with mountains and a castle, painted art style, add film grain and color grading</div>
-            </button>
-            <button
-              onClick={() => setDescription('Product photo of a luxury watch, studio lighting, ultra high quality, use multiple LoRAs for detail enhancement')}
-              className="text-sm text-left p-3 bg-muted/50 hover:bg-muted rounded-md transition-colors w-full"
-            >
-              <div className="font-medium">Product Photography with LoRAs</div>
-              <div className="text-muted-foreground">Product photo of a luxury watch, studio lighting, ultra high quality, use multiple LoRAs for detail enhancement</div>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
