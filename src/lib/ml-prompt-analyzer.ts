@@ -1,8 +1,39 @@
-import { pipeline, env } from '@huggingface/transformers';
+// Hugging Face Inference API client
+class HuggingFaceInference {
+  private readonly apiKey: string | null;
+  private readonly baseUrl = 'https://api-inference.huggingface.co/models';
 
-// Configure to use local models for better performance
-env.allowRemoteModels = false;
-env.allowLocalModels = true;
+  constructor() {
+    this.apiKey = process.env.HUGGINGFACE_API_KEY || null;
+  }
+
+  async query(model: string, inputs: string | Record<string, unknown>, options: Record<string, unknown> = {}) {
+    if (!this.apiKey) {
+      throw new Error('Hugging Face API key not configured');
+    }
+
+    const response = await fetch(`${this.baseUrl}/${model}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs,
+        options: {
+          wait_for_model: true,
+          ...options
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HF API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+}
 
 export interface PromptAnalysis {
   entities: {
@@ -44,34 +75,19 @@ export interface PromptAnalysis {
 }
 
 export class MLPromptAnalyzer {
-  private nerPipeline: unknown = null;
-  private classificationPipeline: unknown = null;
-  private sentimentPipeline: unknown = null;
-  private embeddingPipeline: unknown = null;
+  private hf: HuggingFaceInference;
   private initialized = false;
+
+  constructor() {
+    this.hf = new HuggingFaceInference();
+  }
 
   async initialize() {
     if (this.initialized) return;
-
-    try {
-      // Initialize NER pipeline for entity extraction
-      this.nerPipeline = await pipeline('ner', 'Xenova/bert-base-NER');
-      
-      // Initialize classification pipeline for style detection
-      this.classificationPipeline = await pipeline('zero-shot-classification', 'Xenova/nli-deberta-v3-xsmall');
-      
-      // Initialize sentiment analysis
-      this.sentimentPipeline = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english');
-      
-      // Initialize embedding pipeline for similarity
-      this.embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-      
-      this.initialized = true;
-      console.log('ML Prompt Analyzer initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize ML models:', error);
-      throw error;
-    }
+    
+    // No heavy model loading needed - just mark as initialized
+    this.initialized = true;
+    console.log('ML Prompt Analyzer initialized (using HF Inference API)');
   }
 
   async analyzePrompt(prompt: string): Promise<PromptAnalysis> {
@@ -80,12 +96,12 @@ export class MLPromptAnalyzer {
     }
 
     try {
-      // Run all analyses in parallel for better performance
+      // Run all analyses in parallel using HF Inference API
       const [entities, classifications, sentiment, technical] = await Promise.all([
         this.extractEntities(prompt),
         this.classifyPrompt(prompt),
         this.analyzeSentiment(prompt),
-        this.analyzeTechnicalRequirements(prompt)
+        Promise.resolve(this.analyzeTechnicalRequirements(prompt))
       ]);
 
       const workflowComplexity = this.estimateWorkflowComplexity(prompt, entities, classifications);
@@ -98,9 +114,57 @@ export class MLPromptAnalyzer {
         workflow_complexity: workflowComplexity
       };
     } catch (error) {
-      console.error('Error analyzing prompt:', error);
-      throw error;
+      console.error('Error analyzing prompt with HF API:', error);
+      // Fallback to basic analysis if API fails
+      return await this.getBasicAnalysis(prompt);
     }
+  }
+
+  private async getBasicAnalysis(prompt: string): Promise<PromptAnalysis> {
+    // Basic pattern-based analysis as fallback
+    const lowerPrompt = prompt.toLowerCase();
+    
+    const entities = {
+      artistic_styles: [],
+      subjects: [],
+      techniques: [],
+      moods: [],
+      colors: [],
+      compositions: [],
+      lighting: [],
+      models: [],
+      parameters: []
+    };
+
+    // Extract basic patterns
+    this.extractArtisticTerms(prompt, entities);
+
+    const classifications = {
+      primary_style: lowerPrompt.includes('anime') ? 'anime' : 
+                    lowerPrompt.includes('photo') ? 'photorealistic' : 'artistic',
+      complexity_level: this.determineComplexity(prompt),
+      image_type: (lowerPrompt.includes('portrait') ? 'portrait' : 
+                 lowerPrompt.includes('landscape') ? 'landscape' : 'scene') as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
+      art_movement: 'contemporary',
+      quality_level: (lowerPrompt.includes('high') ? 'high' : 'standard') as 'standard' | 'high' | 'professional'
+    };
+
+    const sentiment = {
+      mood: 'calm' as const,
+      intensity: 0.5,
+      confidence: 0.5
+    };
+
+    const technical_requirements = await this.analyzeTechnicalRequirements(prompt);
+    const workflow_complexity = this.estimateWorkflowComplexity(prompt, entities, classifications);
+
+    return {
+      entities,
+      classifications,
+      sentiment,
+      technical_requirements,
+      workflow_complexity
+    };
   }
 
   private async extractEntities(prompt: string) {
@@ -117,16 +181,20 @@ export class MLPromptAnalyzer {
     };
 
     try {
-      // Use NER to extract named entities
-      const nerResults = await (this.nerPipeline as (text: string) => Promise<Array<{ word: string; entity: string }>>)(prompt);
+      // Use HF Inference API for NER
+      const nerResults = await this.hf.query('dbmdz/bert-large-cased-finetuned-conll03-english', prompt);
       
       // Process NER results and categorize them
-      for (const result of nerResults) {
-        const entity = result.word.toLowerCase();
-        const entityType = this.categorizeEntity(entity);
-        
-        if (entityType && entities[entityType as keyof typeof entities] && !entities[entityType as keyof typeof entities].includes(entity)) {
-          entities[entityType as keyof typeof entities].push(entity);
+      if (Array.isArray(nerResults)) {
+        for (const result of nerResults) {
+          if (result.word) {
+            const entity = result.word.toLowerCase();
+            const entityType = this.categorizeEntity(entity);
+            
+            if (entityType && entities[entityType as keyof typeof entities] && !entities[entityType as keyof typeof entities].includes(entity)) {
+              entities[entityType as keyof typeof entities].push(entity);
+            }
+          }
         }
       }
 
@@ -135,9 +203,26 @@ export class MLPromptAnalyzer {
       
       return entities;
     } catch (error) {
-      console.error('Error extracting entities:', error);
+      console.error('Error extracting entities with HF API:', error);
+      // Fallback to pattern matching only
+      this.extractArtisticTerms(prompt, entities);
       return entities;
     }
+  }
+
+  private getBasicClassification(prompt: string) {
+    const lowerPrompt = prompt.toLowerCase();
+    const complexity = this.determineComplexity(prompt);
+
+    return {
+      primary_style: lowerPrompt.includes('anime') ? 'anime' : 
+                    lowerPrompt.includes('photo') ? 'photorealistic' : 'realistic',
+      complexity_level: complexity,
+      image_type: lowerPrompt.includes('portrait') ? 'portrait' : 
+                 lowerPrompt.includes('landscape') ? 'landscape' : 'scene' as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
+      art_movement: 'contemporary',
+      quality_level: lowerPrompt.includes('high') ? 'high' : 'standard' as 'standard' | 'high' | 'professional'
+    };
   }
 
   private categorizeEntity(entity: string): keyof PromptAnalysis['entities'] | null {
@@ -197,32 +282,27 @@ export class MLPromptAnalyzer {
       const artMovementLabels = ['impressionist', 'surreal', 'modern', 'classical', 'contemporary'];
       const qualityLabels = ['standard', 'high quality', 'professional'];
 
+      // Use HF Inference API for zero-shot classification
       const [styleResult, imageTypeResult, artMovementResult, qualityResult] = await Promise.all([
-        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, styleLabels),
-        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, imageTypeLabels),
-        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, artMovementLabels),
-        (this.classificationPipeline as (text: string, labels: string[]) => Promise<{ labels: string[] }>)(prompt, qualityLabels)
+        this.hf.query('facebook/bart-large-mnli', { candidate_labels: styleLabels, inputs: prompt }),
+        this.hf.query('facebook/bart-large-mnli', { candidate_labels: imageTypeLabels, inputs: prompt }),
+        this.hf.query('facebook/bart-large-mnli', { candidate_labels: artMovementLabels, inputs: prompt }),
+        this.hf.query('facebook/bart-large-mnli', { candidate_labels: qualityLabels, inputs: prompt })
       ]);
 
       const complexity = this.determineComplexity(prompt);
 
       return {
-        primary_style: styleResult.labels[0],
+        primary_style: styleResult.labels?.[0] || 'realistic',
         complexity_level: complexity,
-        image_type: imageTypeResult.labels[0] as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
-        art_movement: artMovementResult.labels[0],
-        quality_level: (qualityResult.labels[0] === 'standard' ? 'standard' : 
-                      qualityResult.labels[0] === 'high quality' ? 'high' : 'professional') as 'standard' | 'high' | 'professional'
+        image_type: (imageTypeResult.labels?.[0] || 'scene') as 'portrait' | 'landscape' | 'character' | 'scene' | 'product' | 'abstract',
+        art_movement: artMovementResult.labels?.[0] || 'contemporary',
+        quality_level: ((qualityResult.labels?.[0] === 'standard' ? 'standard' : 
+                       qualityResult.labels?.[0] === 'high quality' ? 'high' : 'professional')) as 'standard' | 'high' | 'professional'
       };
     } catch (error) {
-      console.error('Error in classification:', error);
-      return {
-        primary_style: 'realistic',
-        complexity_level: 'medium' as const,
-        image_type: 'scene' as const,
-        art_movement: 'contemporary',
-        quality_level: 'standard' as const
-      };
+      console.error('Error in classification with HF API:', error);
+      return this.getBasicClassification(prompt);
     }
   }
 
@@ -238,23 +318,34 @@ export class MLPromptAnalyzer {
 
   private async analyzeSentiment(prompt: string) {
     try {
-      const sentimentResult = await (this.sentimentPipeline as (text: string) => Promise<Array<{ label: string; score: number }>>)(prompt);
+      // Use HF Inference API for sentiment analysis
+      const sentimentResult = await this.hf.query('cardiffnlp/twitter-roberta-base-sentiment-latest', prompt);
       
       // Map sentiment to mood
       const moodMapping = {
-        'POSITIVE': ['joyful', 'energetic', 'calm'][Math.floor(Math.random() * 3)],
-        'NEGATIVE': ['melancholic', 'mysterious', 'dramatic'][Math.floor(Math.random() * 3)]
+        'LABEL_2': ['joyful', 'energetic', 'calm'][Math.floor(Math.random() * 3)], // Positive
+        'LABEL_0': ['melancholic', 'mysterious', 'dramatic'][Math.floor(Math.random() * 3)], // Negative
+        'LABEL_1': 'calm' // Neutral
       };
 
-      const mood = moodMapping[sentimentResult[0].label as keyof typeof moodMapping] || 'calm';
+      let mood = 'calm';
+      let intensity = 0.5;
+      let confidence = 0.5;
+
+      if (Array.isArray(sentimentResult) && sentimentResult.length > 0) {
+        const topResult = sentimentResult[0];
+        mood = moodMapping[topResult.label as keyof typeof moodMapping] || 'calm';
+        intensity = topResult.score || 0.5;
+        confidence = topResult.score || 0.5;
+      }
       
       return {
         mood: mood as 'calm' | 'energetic' | 'dramatic' | 'mysterious' | 'joyful' | 'melancholic',
-        intensity: sentimentResult[0].score,
-        confidence: sentimentResult[0].score
+        intensity,
+        confidence
       };
     } catch (error) {
-      console.error('Error analyzing sentiment:', error);
+      console.error('Error analyzing sentiment with HF API:', error);
       return {
         mood: 'calm' as const,
         intensity: 0.5,
@@ -353,10 +444,15 @@ export class MLPromptAnalyzer {
     }
 
     try {
-      const result = await (this.embeddingPipeline as (text: string) => Promise<{ data: Float32Array }>)(prompt);
-      return Array.from(result.data);
+      // Use HF Inference API for feature extraction
+      const result = await this.hf.query('sentence-transformers/all-MiniLM-L6-v2', prompt);
+      
+      if (Array.isArray(result) && result.length > 0) {
+        return result[0];
+      }
+      return [];
     } catch (error) {
-      console.error('Error getting prompt embedding:', error);
+      console.error('Error getting prompt embedding with HF API:', error);
       return [];
     }
   }
