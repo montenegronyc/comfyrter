@@ -158,18 +158,22 @@ export function WorkflowGenerator() {
     }
   }
 
-  // Check LLM availability on component mount
+  // Check ML capabilities on component mount
   React.useEffect(() => {
-    const checkLLMStatus = async () => {
+    const checkMLStatus = async () => {
       try {
-        const available = await quickSetupCheck()
-        setLlmAvailable(available)
+        // Check both LLM and HF API availability
+        const [llmStatus, hfStatus] = await Promise.all([
+          quickSetupCheck().catch(() => false),
+          fetch('/api/hf-status').then(res => res.ok).catch(() => false)
+        ])
+        setLlmAvailable(llmStatus || hfStatus)
       } catch {
         setLlmAvailable(false)
       }
     }
     
-    checkLLMStatus()
+    checkMLStatus()
   }, [])
 
   return (
@@ -240,7 +244,7 @@ export function WorkflowGenerator() {
             </div>
           )}
           
-          {/* LLM Status Indicator */}
+          {/* ML Status Indicator */}
           {llmAvailable !== null && (
             <div className={`text-xs px-3 py-2 rounded-md border flex items-center gap-2 ${
               llmAvailable 
@@ -250,12 +254,12 @@ export function WorkflowGenerator() {
               {llmAvailable ? (
                 <>
                   <Brain className="h-3 w-3" />
-                  <span>🤖 Advanced LLM parsing enabled</span>
+                  <span>🤖 Advanced ML analysis enabled (Hugging Face + LLM)</span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-3 w-3" />
-                  <span>Using standard parsing (configure Hugging Face API for enhanced features)</span>
+                  <span>Using pattern-based analysis (configure Hugging Face API for ML features)</span>
                 </>
               )}
             </div>
