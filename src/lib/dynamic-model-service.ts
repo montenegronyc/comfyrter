@@ -23,7 +23,7 @@ export class DynamicModelService {
     
     // Use cache if available and not expired
     if (!forceRefresh && this.cachedModels && (now - this.lastFetch) < this.CACHE_DURATION) {
-      return this.cachedModels;
+      return this.cachedModels || [];
     }
 
     try {
@@ -37,13 +37,13 @@ export class DynamicModelService {
       this.cachedModels = data.models || [];
       this.lastFetch = now;
       
-      return this.cachedModels;
+      return this.cachedModels || [];
     } catch (error) {
       console.error('Failed to fetch trending models:', error);
       
       // Return cached models if available, even if expired
       if (this.cachedModels) {
-        return this.cachedModels;
+        return this.cachedModels || [];
       }
       
       // Return empty array as last resort

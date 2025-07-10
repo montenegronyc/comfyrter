@@ -1,4 +1,6 @@
 import { ParsedWorkflowStep, GenerationParams, EffectParams, LoRAParams } from './types';
+import { DynamicModelService, type DynamicModelSelection } from './dynamic-model-service';
+import { type BaseModelType } from './model-compatibility';
 
 // Keywords for different operations
 const GENERATION_KEYWORDS = ['generate', 'create', 'make', 'produce', 'render', 'draw', 'paint'];
@@ -53,7 +55,9 @@ const UPSCALE_FACTOR_PATTERNS = [
 ];
 
 export class WorkflowParser {
-  parseDescription(description: string): ParsedWorkflowStep[] {
+  private cachedModelSelection: DynamicModelSelection | null = null;
+  
+  async parseDescription(description: string): Promise<ParsedWorkflowStep[]> {
     const steps: ParsedWorkflowStep[] = [];
     const sentences = this.splitIntoSentences(description);
     
@@ -61,7 +65,7 @@ export class WorkflowParser {
       const sentence = sentences[i].trim();
       if (!sentence) continue;
       
-      const step = this.parseSentence(sentence, i);
+      const step = await this.parseSentence(sentence, i);
       if (step) {
         steps.push(step);
       }
@@ -69,9 +73,10 @@ export class WorkflowParser {
     
     // If no specific steps were identified, treat as a basic generation
     if (steps.length === 0) {
+      const params = await this.extractGenerationParams(description);
       steps.push({
         action: 'generate',
-        parameters: this.extractGenerationParams(description) as unknown as Record<string, unknown>,
+        parameters: params as unknown as Record<string, unknown>,
         dependencies: [],
         keywords: ['generate']
       });
@@ -87,14 +92,15 @@ export class WorkflowParser {
       .filter(s => s.length > 0);
   }
   
-  private parseSentence(sentence: string, index: number): ParsedWorkflowStep | null {
+  private async parseSentence(sentence: string, index: number): Promise<ParsedWorkflowStep | null> {
     const lowerSentence = sentence.toLowerCase();
     
     // Check for generation keywords
     if (this.containsAny(lowerSentence, GENERATION_KEYWORDS)) {
+      const params = await this.extractGenerationParams(sentence);
       return {
         action: 'generate',
-        parameters: this.extractGenerationParams(sentence) as unknown as Record<string, unknown>,
+        parameters: params as unknown as Record<string, unknown>,
         dependencies: index > 0 ? [`step_${index - 1}`] : [],
         keywords: ['generate']
       };
@@ -122,9 +128,10 @@ export class WorkflowParser {
     
     // Check for ControlNet
     if (this.containsAny(lowerSentence, CONTROLNET_KEYWORDS)) {
+      const params = await this.extractControlNetParams(sentence);
       return {
         action: 'controlnet',
-        parameters: this.extractControlNetParams(sentence),
+        parameters: params,
         dependencies: [`step_${Math.max(0, index - 1)}`],
         keywords: ['controlnet']
       };
@@ -153,21 +160,71 @@ export class WorkflowParser {
     return null;
   }
   
+  private detectStyle(text: string): string {
+    const lowerText = text.toLowerCase();
+    
+    // Check for explicit style keywords
+    if (lowerText.includes('anime') || lowerText.includes('manga') || lowerText.includes('cartoon') || lowerText.includes('2d')) {
+      return 'anime';
+    }
+    
+    if (lowerText.includes('realistic') || lowerText.includes('photorealistic') || lowerText.includes('photo') || lowerText.includes('portrait')) {
+      return 'realistic';
+    }
+    
+    if (lowerText.includes('artistic') || lowerText.includes('art') || lowerText.includes('painting') || lowerText.includes('drawing')) {
+      return 'artistic';
+    }
+    
+    if (lowerText.includes('fantasy') || lowerText.includes('magic') || lowerText.includes('medieval') || lowerText.includes('dragon')) {
+      return 'fantasy';
+    }
+    
+    // Try to infer from subject matter
+    if (lowerText.includes('girl') || lowerText.includes('character') || lowerText.includes('waifu')) {
+      return 'anime';
+    }
+    
+    if (lowerText.includes('person') || lowerText.includes('human') || lowerText.includes('man') || lowerText.includes('woman')) {
+      return 'realistic';
+    }
+    
+    return 'unknown';
+  }
+  
   private containsAny(text: string, keywords: string[]): boolean {
     return keywords.some(keyword => text.includes(keyword));
   }
   
-  private extractGenerationParams(text: string): GenerationParams {
+  private async extractGenerationParams(text: string): Promise<GenerationParams> {
     const params: GenerationParams = {};
     
-    // Extract model
+    // Extract model using dynamic model service
+    let modelSelection: DynamicModelSelection;
+    
+    // Check if model is explicitly specified
+    let explicitModel: string | null = null;
     for (const pattern of MODEL_PATTERNS) {
       const match = pattern.exec(text);
       if (match) {
-        params.model = match[1];
+        explicitModel = match[1];
         break;
       }
     }
+    
+    if (explicitModel) {
+      // Use the explicitly specified model
+      params.model = explicitModel;
+      modelSelection = await DynamicModelService.selectOptimalModel(text, 'unknown');
+    } else {
+      // Use dynamic model selection
+      const style = this.detectStyle(text);
+      modelSelection = await DynamicModelService.selectOptimalModel(text, style);
+      params.model = modelSelection.selectedModel;
+    }
+    
+    // Cache the selection for use in other methods
+    this.cachedModelSelection = modelSelection;
     
     // Extract dimensions
     for (const pattern of DIMENSION_PATTERNS) {
@@ -219,14 +276,15 @@ export class WorkflowParser {
       }
     }
     
-    // Set defaults if not specified
+    // Set defaults based on model compatibility if not specified
     if (!params.width || !params.height) {
-      params.width = 512;
-      params.height = 512;
+      const optimalRes = modelSelection.compatibility.optimalResolutions[0];
+      params.width = optimalRes.width;
+      params.height = optimalRes.height;
     }
-    if (!params.steps) params.steps = 20;
-    if (!params.cfg) params.cfg = 8.0;
-    if (!params.sampler) params.sampler = 'euler';
+    if (!params.steps) params.steps = Math.min(25, modelSelection.compatibility.maxSteps);
+    if (!params.cfg) params.cfg = modelSelection.compatibility.recommendedCFG.default;
+    if (!params.sampler) params.sampler = modelSelection.compatibility.preferredSamplers[0];
     if (params.seed === undefined) params.seed = -1;
     
     return params;
@@ -304,23 +362,37 @@ export class WorkflowParser {
     };
   }
   
-  private extractControlNetParams(text: string): Record<string, unknown> {
+  private async extractControlNetParams(text: string): Promise<Record<string, unknown>> {
     const params: Record<string, unknown> = {};
     const lowerText = text.toLowerCase();
     
+    let controlType: string;
     if (lowerText.includes('pose') || lowerText.includes('openpose')) {
-      params.type = 'openpose';
+      controlType = 'openpose';
     } else if (lowerText.includes('depth')) {
-      params.type = 'depth';
+      controlType = 'depth';
     } else if (lowerText.includes('canny') || lowerText.includes('edge')) {
-      params.type = 'canny';
+      controlType = 'canny';
     } else if (lowerText.includes('scribble')) {
-      params.type = 'scribble';
+      controlType = 'scribble';
     } else {
-      params.type = 'canny'; // Default
+      controlType = 'canny'; // Default
     }
     
+    params.type = controlType;
     params.strength = this.extractStrength(text) || 1.0;
+    
+    // Get compatible ControlNet based on current model selection
+    if (this.cachedModelSelection) {
+      const compatibleControlNet = await DynamicModelService.getCompatibleControlNets(
+        this.cachedModelSelection.baseModel,
+        controlType
+      );
+      params.controlNetModel = compatibleControlNet.recommended;
+      if (compatibleControlNet.warnings.length > 0) {
+        params.warnings = compatibleControlNet.warnings;
+      }
+    }
     
     return params;
   }
@@ -399,5 +471,15 @@ export class WorkflowParser {
       positive: cleanDescription || 'beautiful artwork, high quality, detailed',
       negative: defaultNegative
     };
+  }
+  
+  // Get the cached model selection for use by other components
+  getModelSelection(): DynamicModelSelection | null {
+    return this.cachedModelSelection;
+  }
+  
+  // Reset cached model selection
+  resetModelSelection(): void {
+    this.cachedModelSelection = null;
   }
 }

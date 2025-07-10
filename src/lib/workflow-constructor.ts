@@ -6,6 +6,7 @@ import { ModelSelector } from './model-knowledge-base';
 import { ParameterOptimizer } from './parameter-optimizer';
 import { ModelCompatibilityChecker, type BaseModelType } from './model-compatibility';
 import { CheckpointAnalyzer, type CheckpointInfo } from './checkpoint-analyzer';
+import { DynamicModelService, type DynamicModelSelection } from './dynamic-model-service';
 
 export class WorkflowConstructor {
   private parser: WorkflowParser;
@@ -21,10 +22,10 @@ export class WorkflowConstructor {
     this.enhancedParser = new EnhancedWorkflowParser();
   }
   
-  public generateWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
+  public async generateWorkflow(description: string): Promise<{ workflow: ComfyUIWorkflow; explanation: WorkflowExplanation }> {
     // Use intelligent workflow generation
     try {
-      return this.generateIntelligentWorkflow(description);
+      return await this.generateIntelligentWorkflow(description);
     } catch (error) {
       console.warn('Falling back to basic workflow generation:', error);
       // Fallback to basic workflow generation
@@ -33,7 +34,7 @@ export class WorkflowConstructor {
       this.linkCounter = 1;
       this.currentLinks = [];
       
-      const steps = this.parser.parseDescription(description);
+      const steps = await this.parser.parseDescription(description);
       const prompts = this.parser.extractPrompt(description);
     
     const nodes: ComfyUINode[] = [];
@@ -227,7 +228,7 @@ export class WorkflowConstructor {
   }
   
   // Enhanced workflow generation with intelligent model selection and compatibility checking
-  public generateIntelligentWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
+  public async generateIntelligentWorkflow(description: string): Promise<{ workflow: ComfyUIWorkflow; explanation: WorkflowExplanation }> {
     // Reset counters and links for fresh workflow generation
     this.nodeCounter = 1;
     this.linkCounter = 1;
@@ -241,20 +242,39 @@ export class WorkflowConstructor {
     const nodes: ComfyUINode[] = [];
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
-    // Select optimal model based on context with compatibility analysis
-    const selectedModel = ModelSelector.selectBestModel(enhanced.context.keywords, enhanced.context.detectedStyle);
-    const selectedModelKey = ModelSelector.getModelKeyByInfo(selectedModel);
-    let modelName = selectedModelKey || 'juggernautXL_v9.safetensors';
+    // Use dynamic model selection with compatibility analysis
+    const modelSelection = await DynamicModelService.selectOptimalModel(
+      description,
+      enhanced.context.detectedStyle
+    );
     
-    // Analyze the selected model for compatibility
-    const checkpointInfo = CheckpointAnalyzer.analyzeCheckpoint(modelName);
-    const baseModel = checkpointInfo.baseModel;
-    const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
+    const modelName = modelSelection.selectedModel;
+    const baseModel = modelSelection.baseModel;
+    const compatibility = modelSelection.compatibility;
     
-    // Ensure we have a valid model name
-    if (baseModel === 'unknown') {
-      // Try to get a model from trending API or use fallback
-      modelName = this.getFallbackModel(enhanced.context.detectedStyle);
+    // Add model selection info to explanation
+    explanationSteps.push({
+      step: 1,
+      description: `Selected model: ${modelName} (${baseModel})`,
+      nodeType: 'CheckpointLoaderSimple',
+      parameters: { model: modelName }
+    });
+    
+    if (modelSelection.warnings.length > 0) {
+      explanationSteps.push({
+        step: 2,
+        description: `⚠️ Warnings: ${modelSelection.warnings.join(', ')}`,
+        nodeType: 'Info',
+        parameters: { warnings: modelSelection.warnings }
+      });
+    }
+    if (modelSelection.suggestions.length > 0) {
+      explanationSteps.push({
+        step: 3,
+        description: `💡 Suggestions: ${modelSelection.suggestions.join(', ')}`,
+        nodeType: 'Info',
+        parameters: { suggestions: modelSelection.suggestions }
+      });
     }
     
     // Always start with model loading
@@ -267,7 +287,12 @@ export class WorkflowConstructor {
     const vaeNode = this.createCompatibleVAENode(baseModel, modelLoadNode.id as number);
     if (vaeNode) {
       nodes.push(vaeNode);
-      explanationSteps.push(`Load recommended VAE (${compatibility.recommendedVAE}) for ${baseModel} model`);
+      explanationSteps.push({
+        step: explanationSteps.length + 1,
+        description: `Load recommended VAE (${compatibility.recommendedVAE}) for ${baseModel} model`,
+        nodeType: 'VAELoader',
+        parameters: { vae_name: compatibility.recommendedVAE }
+      });
     }
     
     // Create text encoding nodes
@@ -391,7 +416,7 @@ export class WorkflowConstructor {
             currentNegative, 
             currentVAE,
             enhanced.context,
-            selectedModel,
+            modelName,
             selectedLoras
           );
           currentImage = result.image;
@@ -680,7 +705,7 @@ export class WorkflowConstructor {
     negative: [number, number],
     vae: [number, number],
     context: unknown,
-    selectedModel: unknown,
+    modelName: string,
     selectedLoras: unknown[]
   ): { latent: [number, number]; image: [number, number] } {
     // Use parameter optimization for intelligent generation
@@ -694,7 +719,7 @@ export class WorkflowConstructor {
         hasUpscaling: false,
         hasEffects: false
       },
-      selectedModel as Parameters<typeof ParameterOptimizer.optimizeParameters>[1],
+      modelName as any,
       selectedLoras as Parameters<typeof ParameterOptimizer.optimizeParameters>[2]
     );
     

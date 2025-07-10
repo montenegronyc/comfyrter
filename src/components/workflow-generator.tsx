@@ -69,7 +69,7 @@ export function WorkflowGenerator() {
       // setEnhancedSteps(hybridResult.steps)
       
       // Step 4: Generate workflow using existing constructor
-      const result = constructor.generateWorkflow(description.trim())
+      const result = await constructor.generateWorkflow(description.trim())
       
       // Step 5: Calculate quality metrics if we have parameters
       if (hybridResult.steps.length > 0) {
