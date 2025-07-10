@@ -4,6 +4,8 @@ import { WorkflowParser } from './workflow-parser';
 import { EnhancedWorkflowParser } from './enhanced-workflow-parser';
 import { ModelSelector } from './model-knowledge-base';
 import { ParameterOptimizer } from './parameter-optimizer';
+import { ModelCompatibilityChecker, type BaseModelType } from './model-compatibility';
+import { CheckpointAnalyzer, type CheckpointInfo } from './checkpoint-analyzer';
 
 export class WorkflowConstructor {
   private parser: WorkflowParser;
@@ -11,6 +13,8 @@ export class WorkflowConstructor {
   private nodeCounter: number = 1;
   private linkCounter: number = 1;
   private currentLinks: ComfyUILink[] = [];
+  private compatibilityWarnings: string[] = [];
+  private compatibilitySuggestions: string[] = [];
   
   constructor() {
     this.parser = new WorkflowParser();
@@ -222,12 +226,14 @@ export class WorkflowConstructor {
     } // End of fallback catch block
   }
   
-  // Enhanced workflow generation with intelligent model selection
+  // Enhanced workflow generation with intelligent model selection and compatibility checking
   public generateIntelligentWorkflow(description: string): { workflow: ComfyUIWorkflow; explanation: WorkflowExplanation } {
     // Reset counters and links for fresh workflow generation
     this.nodeCounter = 1;
     this.linkCounter = 1;
     this.currentLinks = [];
+    this.compatibilityWarnings = [];
+    this.compatibilitySuggestions = [];
     
     const enhanced = this.enhancedParser.parseDescription(description);
     const prompts = this.enhancedParser.extractPrompt(description);
@@ -235,16 +241,34 @@ export class WorkflowConstructor {
     const nodes: ComfyUINode[] = [];
     const explanationSteps: WorkflowExplanation['steps'] = [];
     
-    // Select optimal model based on context
+    // Select optimal model based on context with compatibility analysis
     const selectedModel = ModelSelector.selectBestModel(enhanced.context.keywords, enhanced.context.detectedStyle);
     const selectedModelKey = ModelSelector.getModelKeyByInfo(selectedModel);
-    const modelName = selectedModelKey || 'v1-5-pruned-emaonly.safetensors';
+    let modelName = selectedModelKey || 'juggernautXL_v9.safetensors';
+    
+    // Analyze the selected model for compatibility
+    const checkpointInfo = CheckpointAnalyzer.analyzeCheckpoint(modelName);
+    const baseModel = checkpointInfo.baseModel;
+    const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
+    
+    // Ensure we have a valid model name
+    if (baseModel === 'unknown') {
+      // Try to get a model from trending API or use fallback
+      modelName = this.getFallbackModel(enhanced.context.detectedStyle);
+    }
     
     // Always start with model loading
     const modelLoadNode = this.createNode('CheckpointLoaderSimple', {
       ckpt_name: modelName
     });
     nodes.push(modelLoadNode);
+    
+    // Add VAE if needed for this model type
+    const vaeNode = this.createCompatibleVAENode(baseModel, modelLoadNode.id as number);
+    if (vaeNode) {
+      nodes.push(vaeNode);
+      explanationSteps.push(`Load recommended VAE (${compatibility.recommendedVAE}) for ${baseModel} model`);
+    }
     
     // Create text encoding nodes
     const positiveTextNode = this.createNode('CLIPTextEncode', {
@@ -1035,5 +1059,108 @@ export class WorkflowConstructor {
       isValid: errors.length === 0,
       errors
     };
+  }
+
+  // Compatibility helper methods
+  private createCompatibleVAENode(baseModel: BaseModelType, modelNodeId: number): ComfyUINode | null {
+    const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
+    
+    // Only add VAE if it's different from the default
+    if (compatibility.recommendedVAE && compatibility.recommendedVAE !== 'default') {
+      return this.createNode('VAELoader', {
+        vae_name: compatibility.recommendedVAE
+      });
+    }
+    
+    return null;
+  }
+
+  private createCompatibleControlNetNode(baseModel: BaseModelType, controlType: string, imageInput: any): ComfyUINode | null {
+    const bestControlNet = ModelCompatibilityChecker.getBestControlNet(baseModel, controlType);
+    
+    if (!bestControlNet) {
+      this.compatibilityWarnings.push(`No compatible ControlNet found for ${controlType} with ${baseModel} model`);
+      return null;
+    }
+
+    const controlNetNode = this.createNode('ControlNetLoader', {
+      control_net_name: bestControlNet
+    });
+
+    this.compatibilitySuggestions.push(`Using ${bestControlNet} for ${controlType} (compatible with ${baseModel})`);
+    
+    return controlNetNode;
+  }
+
+  private createCompatibleDetailerNode(baseModel: BaseModelType, detailType: 'face' | 'person' | 'hand' | 'bbox' = 'face'): ComfyUINode | null {
+    const bestDetailer = ModelCompatibilityChecker.getBestDetailer(baseModel, detailType);
+    
+    if (!bestDetailer) {
+      this.compatibilityWarnings.push(`No compatible detailer found for ${detailType} with ${baseModel} model`);
+      return null;
+    }
+
+    const detailerNode = this.createNode('UltralyticsDetectorProvider', {
+      model_name: bestDetailer
+    });
+
+    this.compatibilitySuggestions.push(`Using ${bestDetailer} for ${detailType} detection (compatible with ${baseModel})`);
+    
+    return detailerNode;
+  }
+
+  private getOptimalSamplingSettings(baseModel: BaseModelType, styleType: string) {
+    const compatibility = ModelCompatibilityChecker.getCompatibility(baseModel);
+    const checkpointInfo = CheckpointAnalyzer.analyzeCheckpoint('', { description: styleType });
+    
+    return {
+      sampler: compatibility.preferredSamplers[0] || 'dpmpp_2m_karras',
+      scheduler: compatibility.supportedSchedulers[0] || 'karras',
+      steps: Math.min(checkpointInfo.recommendedSettings.steps, compatibility.maxSteps),
+      cfg: Math.max(
+        Math.min(checkpointInfo.recommendedSettings.cfg, compatibility.recommendedCFG.max),
+        compatibility.recommendedCFG.min
+      ),
+      clipSkip: checkpointInfo.recommendedSettings.clipSkip || compatibility.clipSkip
+    };
+  }
+
+  private getFallbackModel(style: string): string {
+    // 2024/2025 model fallbacks based on style
+    const fallbackModels = {
+      realistic: 'juggernautXL_v9.safetensors',
+      anime: 'ponyDiffusionV6XL.safetensors', 
+      artistic: 'dreamShaperXL_v21.safetensors',
+      fantasy: 'dreamShaperXL_v21.safetensors',
+      unknown: 'realvisXL_v4.safetensors'
+    };
+    
+    return fallbackModels[style as keyof typeof fallbackModels] || fallbackModels.unknown;
+  }
+
+  private validateWorkflowCompatibility(baseModel: BaseModelType, config: any): void {
+    const validation = ModelCompatibilityChecker.validateConfiguration(baseModel, config);
+    
+    this.compatibilityWarnings.push(...validation.warnings);
+    this.compatibilitySuggestions.push(...validation.suggestions);
+    
+    if (!validation.valid) {
+      console.warn('Workflow compatibility issues detected:', validation.warnings);
+    }
+  }
+
+  // Add compatibility info to workflow explanation
+  private addCompatibilityInfo(explanationSteps: string[]): string[] {
+    if (this.compatibilityWarnings.length > 0) {
+      explanationSteps.push('⚠️ Compatibility Warnings:');
+      explanationSteps.push(...this.compatibilityWarnings.map(w => `  • ${w}`));
+    }
+    
+    if (this.compatibilitySuggestions.length > 0) {
+      explanationSteps.push('💡 Compatibility Suggestions:');
+      explanationSteps.push(...this.compatibilitySuggestions.map(s => `  • ${s}`));
+    }
+    
+    return explanationSteps;
   }
 }

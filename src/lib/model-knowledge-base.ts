@@ -30,21 +30,106 @@ export interface StylePreset {
   postProcessing?: string[];
 }
 
-// Comprehensive Model Knowledge Base
+// Comprehensive Model Knowledge Base - Updated for 2024/2025
 export const MODEL_KNOWLEDGE_BASE: Record<string, ModelInfo> = {
-  // === REALISTIC MODELS ===
+  // === 2024/2025 SDXL MODELS ===
+  'juggernautXL_v9.safetensors': {
+    name: 'JuggernautXL v9',
+    type: 'checkpoint',
+    category: 'realistic',
+    tags: ['photorealistic', 'xl', 'sdxl', 'versatile', '2024'],
+    description: 'Latest SDXL photorealistic model with exceptional detail and lighting',
+    bestFor: ['portraits', 'photography', 'realistic scenes', 'commercial work'],
+    cfg: [4, 7],
+    steps: [25, 40],
+    samplers: ['DPM++ 2M Karras', 'DPM++ SDE Karras', 'Euler a'],
+    negativePrompts: ['blurry', 'low quality', 'bad anatomy', 'deformed', 'cartoon'],
+    aspectRatios: ['1:1', '3:4', '4:3', '16:9', '9:16']
+  },
+
+  'realvisXL_v4.safetensors': {
+    name: 'RealVisXL v4.0',
+    type: 'checkpoint',
+    category: 'realistic',
+    tags: ['photorealistic', 'xl', 'sdxl', 'portrait', 'detailed', '2024'],
+    description: 'Premium SDXL model for ultra-realistic portraits and scenes',
+    bestFor: ['professional portraits', 'fashion photography', 'beauty shots', 'lifestyle'],
+    cfg: [3, 6],
+    steps: [30, 50],
+    samplers: ['DPM++ 2M Karras', 'DPM++ 2M SDE Karras'],
+    negativePrompts: ['cartoon', 'anime', 'painting', 'sketch', 'low quality'],
+    aspectRatios: ['1:1', '3:4', '4:3', '2:3', '3:2']
+  },
+
+  'ponyDiffusionV6XL.safetensors': {
+    name: 'Pony Diffusion V6 XL',
+    type: 'checkpoint',
+    category: 'anime',
+    tags: ['anime', 'pony', 'xl', 'sdxl', 'versatile', 'anthropomorphic', '2024'],
+    description: 'Advanced SDXL anime model with excellent character generation',
+    bestFor: ['anime characters', 'furry art', 'cartoon style', 'character design'],
+    cfg: [6, 9],
+    steps: [25, 35],
+    samplers: ['DPM++ 2M Karras', 'Euler a', 'DPM++ SDE Karras'],
+    negativePrompts: ['photorealistic', 'realistic', 'blurry', 'low quality'],
+    aspectRatios: ['1:1', '3:4', '4:3', '16:9']
+  },
+
+  'dreamShaperXL_v21.safetensors': {
+    name: 'DreamShaper XL v2.1',
+    type: 'checkpoint',
+    category: 'artistic',
+    tags: ['artistic', 'xl', 'sdxl', 'versatile', 'creative', '2024'],
+    description: 'Versatile SDXL model for artistic and creative generations',
+    bestFor: ['artistic scenes', 'creative concepts', 'fantasy art', 'illustrations'],
+    cfg: [5, 8],
+    steps: [20, 30],
+    samplers: ['DPM++ 2M Karras', 'DPM++ SDE Karras', 'Euler a'],
+    negativePrompts: ['blurry', 'low quality', 'deformed', 'bad anatomy'],
+    aspectRatios: ['1:1', '3:4', '4:3', '16:9', '9:16']
+  },
+
+  'animagineXL_v31.safetensors': {
+    name: 'Animagine XL v3.1',
+    type: 'checkpoint',
+    category: 'anime',
+    tags: ['anime', 'xl', 'sdxl', 'manga', 'detailed', '2024'],
+    description: 'High-quality SDXL anime model with manga-style aesthetics',
+    bestFor: ['anime art', 'manga style', 'character illustrations', 'waifus'],
+    cfg: [7, 12],
+    steps: [25, 40],
+    samplers: ['DPM++ 2M Karras', 'Euler a', 'DPM++ SDE Karras'],
+    negativePrompts: ['photorealistic', 'realistic', 'low quality', 'blurry'],
+    aspectRatios: ['1:1', '3:4', '4:3', '2:3']
+  },
+
+  // === LEGACY SD1.5 MODELS (Still Popular) ===
   'epicrealism_naturalSinRC1VAE.safetensors': {
     name: 'EpicRealism Natural Sin RC1 VAE',
     type: 'checkpoint',
     category: 'realistic',
-    tags: ['photorealistic', 'natural', 'people', 'portrait', 'cinematic'],
-    description: 'High-quality photorealistic model with natural skin tones and lighting',
+    tags: ['photorealistic', 'natural', 'people', 'portrait', 'cinematic', 'sd15'],
+    description: 'High-quality SD1.5 photorealistic model with natural skin tones',
     bestFor: ['portraits', 'people', 'realistic scenes', 'photography style'],
     cfg: [4, 8],
     steps: [25, 35],
     samplers: ['DPM++ 2M', 'DPM++ SDE', 'Euler a'],
     negativePrompts: ['blurry', 'low quality', 'bad anatomy', 'deformed'],
     aspectRatios: ['1:1', '3:4', '4:3', '16:9']
+  },
+
+  'anythingV5_anythingV5.safetensors': {
+    name: 'Anything V5',
+    type: 'checkpoint',
+    category: 'anime',
+    tags: ['anime', 'versatile', 'colorful', 'sd15', 'popular'],
+    description: 'Popular SD1.5 anime model with vibrant colors and versatility',
+    bestFor: ['anime characters', 'colorful art', 'fantasy scenes', 'creative concepts'],
+    cfg: [7, 12],
+    steps: [20, 30],
+    samplers: ['DPM++ 2M Karras', 'Euler a', 'DPM++ SDE'],
+    negativePrompts: ['photorealistic', 'realistic', 'low quality', 'blurry'],
+    aspectRatios: ['1:1', '3:4', '4:3']
   },
   
   'realistic_vision_v5.safetensors': {
